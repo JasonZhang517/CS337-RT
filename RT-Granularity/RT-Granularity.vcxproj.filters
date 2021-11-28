@@ -159,7 +159,6 @@
     <None Include="Content\Shaders\SpatialFilter.hlsli">
       <Filter>Shaders\Denoiser</Filter>
     </None>
-    <None Include="README.md" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>

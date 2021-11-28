@@ -27,7 +27,7 @@ RayTracedGGX::RayTracedGGX(uint32_t width, uint32_t height, std::wstring name) :
 	m_frameIndex(0),
 	m_viewport(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height)),
 	m_scissorRect(0, 0, static_cast<long>(width), static_cast<long>(height)),
-	m_asyncCompute(1),
+	// m_asyncCompute(1),
 	m_currentMesh(0),
 	m_useSharedMem(false),
 	m_isPaused(false),
@@ -254,50 +254,11 @@ void RayTracedGGX::OnUpdate()
 // Render the scene.
 void RayTracedGGX::OnRender()
 {
-	if (m_asyncCompute)
-	{
-		// Record all the commands we need to render the scene into the command list.
-		{
-			const auto commandType = COMPUTE;
-			const auto commandQueue = m_commandQueues[commandType].get();
-			PopulateUpdateASCommandList(commandType);
-			N_RETURN(commandQueue->SubmitCommandList(m_commandLists[commandType].get(), &m_semaphore, 1), ThrowIfFailed(E_FAIL)); // Execute the command lists.
-			N_RETURN(commandQueue->Signal(m_semaphore.Fence.get(), ++m_semaphore.Value), ThrowIfFailed(E_FAIL));
-		}
+	// Record all the commands we need to render the scene into the command list.
+	PopulateCommandList();
 
-		// Record all the commands we need to render the scene into the command list.
-		{
-			const auto commandType = UNIVERSAL;
-			const auto commandQueue = m_commandQueues[commandType].get();
-			PopulateGeometryCommandList(commandType);
-			commandQueue->ExecuteCommandList(m_commandLists[commandType].get()); // Execute the command lists.
-		}
-
-		// Record all the commands we need to render the scene into the command list.
-		{
-			const auto commandType = UNIVERSAL;
-			const auto commandQueue = m_commandQueues[commandType].get();
-			PopulateRayTraceCommandList(commandType);
-			N_RETURN(commandQueue->SubmitCommandList(m_commandLists[commandType].get(), &m_semaphore, 1), ThrowIfFailed(E_FAIL)); // Execute the command lists.
-			N_RETURN(commandQueue->Signal(m_semaphore.Fence.get(), ++m_semaphore.Value), ThrowIfFailed(E_FAIL));
-		}
-
-		// Record all the commands we need to render the scene into the command list.
-		{
-			const auto commandType = UNIVERSAL;
-			const auto commandQueue = m_commandQueues[commandType].get();
-			PopulateImageCommandList(commandType);
-			commandQueue->ExecuteCommandList(m_commandLists[commandType].get()); // Execute the command lists.
-		}
-	}
-	else
-	{
-		// Record all the commands we need to render the scene into the command list.
-		PopulateCommandList();
-
-		// Execute the command list.
-		m_commandQueues[UNIVERSAL]->ExecuteCommandList(m_commandLists[UNIVERSAL].get());
-	}
+	// Execute the command list.
+	m_commandQueues[UNIVERSAL]->ExecuteCommandList(m_commandLists[UNIVERSAL].get());
 
 	// Present the frame.
 	N_RETURN(m_swapChain->Present(0, 0), ThrowIfFailed(E_FAIL));
@@ -340,9 +301,6 @@ void RayTracedGGX::OnKeyUp(uint8_t key)
 		break;
 	case 'V':
 		m_useSharedMem = !m_useSharedMem;
-		break;
-	case 'A':
-		m_asyncCompute = !m_asyncCompute;
 		break;
 	}
 }
@@ -615,7 +573,6 @@ double RayTracedGGX::CalculateFrameStats(float* pTimeStep)
 		wstringstream windowText;
 		windowText << setprecision(2) << fixed << L"    fps: " << fps;
 		windowText << L"    [V] " << (m_useSharedMem ? L"Shared memory" : L"Direct access");
-		windowText << L"    [A] " << (m_asyncCompute ? L"Async compute" : L"Single command list");
 		windowText << L"    [\x2190][\x2192] Current mesh: " << meshNames[m_currentMesh];
 		windowText << L"    [\x2191][\x2193] Metallic: " << m_metallics[m_currentMesh];
 		SetCustomWindowText(windowText.str().c_str());

@@ -70,10 +70,17 @@ RayTracer::~RayTracer()
 {
 }
 
-bool RayTracer::Init(RayTracing::CommandList* pCommandList, uint32_t width, uint32_t height,
-	vector<Resource::uptr>& uploaders, GeometryBuffer* pGeometries, const char* fileName,
-	const wchar_t* envFileName, Format rtFormat, const XMFLOAT4& posScale,
-	uint8_t maxGBufferMips)
+bool RayTracer::Init(
+	RayTracing::CommandList* pCommandList, 
+	uint32_t                 width, 
+	uint32_t                 height,
+	vector<Resource::uptr>&  uploaders, 
+	GeometryBuffer*          pGeometries, 
+	const char*              fileName,
+	const wchar_t*           envFileName, 
+	Format                   rtFormat, 
+	const XMFLOAT4&          posScale,
+	uint8_t                  maxGBufferMips)
 {
 	m_viewport = XMUINT2(width, height);
 	m_posScale = posScale;
