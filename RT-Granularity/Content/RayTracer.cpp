@@ -707,7 +707,7 @@ bool RayTracer::buildAccelerationStructures(const RayTracing::CommandList* pComm
 	for (auto i = 0u; i < NUM_MESH; ++i)
 	{
 		m_bottomLevelASs[i] = BottomLevelAS::MakeUnique();
-		N_RETURN(m_bottomLevelASs[i]->PreBuild(m_device.get(), 1, pGeometries[i], bottomLevelASIndex + i), false);
+		N_RETURN(m_bottomLevelASs[i]->PreBuild(m_device.get(), 1, pGeometries[i], bottomLevelASIndex + i, BuildFlag::PREFER_FAST_BUILD), false);
 	}
 	m_topLevelAS = TopLevelAS::MakeUnique();
 	N_RETURN(m_topLevelAS->PreBuild(m_device.get(), NUM_MESH, topLevelASIndex,
