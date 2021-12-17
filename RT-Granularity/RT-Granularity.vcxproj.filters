@@ -51,7 +51,7 @@
     <ClCompile Include="RT-Granularity.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Content\RayTracer.cpp">
+    <ClCompile Include="Content\PRayTracer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Content\Denoiser.cpp">
@@ -59,6 +59,12 @@
     </ClCompile>
     <ClCompile Include="Common\XUSGObjLoader.cpp">
       <Filter>Common\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Content\TVRayTracer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Content\VRayTracer.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -83,7 +89,7 @@
     <ClInclude Include="RT-Granularity.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Content\RayTracer.h">
+    <ClInclude Include="Content\PRayTracer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Common\D3D12RaytracingFallback.h">
@@ -100,6 +106,15 @@
     </ClInclude>
     <ClInclude Include="Common\XUSGObjLoader.h">
       <Filter>Common\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Content\TVRayTracer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Content\VRayTracer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Content\RayTracerSelection.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -144,6 +159,18 @@
     </FxCompile>
     <FxCompile Include="Content\Shaders\CSSpatial_V_Diff_S.hlsl">
       <Filter>Shaders\Denoiser</Filter>
+    </FxCompile>
+    <FxCompile Include="Content\Shaders\HullShader.hlsl">
+      <Filter>Shaders\Renderer</Filter>
+    </FxCompile>
+    <FxCompile Include="Content\Shaders\DomainShader.hlsl">
+      <Filter>Shaders\Renderer</Filter>
+    </FxCompile>
+    <FxCompile Include="Content\Shaders\VertexShader.hlsl">
+      <Filter>Shaders\Renderer</Filter>
+    </FxCompile>
+    <FxCompile Include="Content\Shaders\PixelShader.hlsl">
+      <Filter>Shaders\Renderer</Filter>
     </FxCompile>
   </ItemGroup>
   <ItemGroup>

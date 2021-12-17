@@ -2,7 +2,8 @@
 // Copyright (c) XU, Tianchen. All rights reserved.
 //--------------------------------------------------------------------------------------
 
-#include "RayTracer.h"
+#include "stdafx.h"
+#include "TVRayTracer.h"
 #include "XUSGObjLoader.h"
 #define _INDEPENDENT_DDS_LOADER_
 #include "Advanced/XUSGDDSLoader.h"
@@ -28,7 +29,7 @@ struct RayGenConstants
 
 struct CBGlobal
 {
-	XMFLOAT3X4	WorldITs[RayTracer::NUM_MESH - 1];
+	XMFLOAT3X4	WorldITs[TVRayTracer::NUM_MESH - 1];
 	float		WorldIT[11];
 	uint32_t	FrameIndex;
 };
@@ -43,16 +44,16 @@ struct CBBasePass
 
 struct CBMaterial
 {
-	XMFLOAT4	BaseColors[RayTracer::NUM_MESH];
-	XMFLOAT4	RoughMetals[RayTracer::NUM_MESH];
+	XMFLOAT4	BaseColors[TVRayTracer::NUM_MESH];
+	XMFLOAT4	RoughMetals[TVRayTracer::NUM_MESH];
 };
 
-const wchar_t* RayTracer::HitGroupNames[] = { L"hitGroupReflection", L"hitGroupDiffuse" };
-const wchar_t* RayTracer::RaygenShaderName = L"raygenMain";
-const wchar_t* RayTracer::ClosestHitShaderNames[] = { L"closestHitReflection", L"closestHitDiffuse" };
-const wchar_t* RayTracer::MissShaderName = L"missMain";
+const wchar_t* TVRayTracer::HitGroupNames[] = { L"hitGroupReflection", L"hitGroupDiffuse" };
+const wchar_t* TVRayTracer::RaygenShaderName = L"raygenMain";
+const wchar_t* TVRayTracer::ClosestHitShaderNames[] = { L"closestHitReflection", L"closestHitDiffuse" };
+const wchar_t* TVRayTracer::MissShaderName = L"missMain";
 
-RayTracer::RayTracer(const RayTracing::Device::sptr& device) :
+TVRayTracer::TVRayTracer(const RayTracing::Device::sptr& device) :
 	m_device(device),
 	m_instances()
 {
@@ -66,20 +67,20 @@ RayTracer::RayTracer(const RayTracing::Device::sptr& device) :
 	AccelerationStructure::SetUAVCount(NUM_MESH + NUM_HIT_GROUP + 1);
 }
 
-RayTracer::~RayTracer()
+TVRayTracer::~TVRayTracer()
 {
 }
 
-bool RayTracer::Init(
-	RayTracing::CommandList* pCommandList, 
-	uint32_t                 width, 
+bool TVRayTracer::Init(
+	RayTracing::CommandList* pCommandList,
+	uint32_t                 width,
 	uint32_t                 height,
-	vector<Resource::uptr>&  uploaders, 
-	GeometryBuffer*          pGeometries, 
-	const char*              fileName,
-	const wchar_t*           envFileName, 
-	Format                   rtFormat, 
-	const XMFLOAT4&          posScale,
+	vector<Resource::uptr>& uploaders,
+	GeometryBuffer* pGeometries,
+	const char* fileName,
+	const wchar_t* envFileName,
+	Format                   rtFormat,
+	const XMFLOAT4& posScale,
 	uint8_t                  maxGBufferMips)
 {
 	m_viewport = XMUINT2(width, height);
@@ -169,11 +170,13 @@ bool RayTracer::Init(
 	return true;
 }
 
+/*
 void RayTracer::SetMetallic(uint32_t meshIdx, float metallic)
 {
 	const auto pCbData = reinterpret_cast<CBMaterial*>(m_cbMaterials->Map());
 	pCbData->RoughMetals[meshIdx].y = metallic;
 }
+*/
 
 static const XMFLOAT2& IncrementalHalton()
 {
@@ -232,7 +235,7 @@ static const XMFLOAT2& IncrementalHalton()
 	return halton;
 }
 
-void RayTracer::UpdateFrame(uint8_t frameIndex, CXMVECTOR eyePt, CXMMATRIX viewProj, float timeStep)
+void TVRayTracer::UpdateFrame(uint8_t frameIndex, CXMVECTOR eyePt, CXMMATRIX viewProj, float timeStep)
 {
 	const auto halton = IncrementalHalton();
 	XMFLOAT2 projBias =
@@ -284,13 +287,13 @@ void RayTracer::UpdateFrame(uint8_t frameIndex, CXMVECTOR eyePt, CXMMATRIX viewP
 	}
 }
 
-void RayTracer::Render(const RayTracing::CommandList* pCommandList, uint8_t frameIndex)
+void TVRayTracer::Render(const RayTracing::CommandList* pCommandList, uint8_t frameIndex)
 {
-	RenderGeometry(pCommandList, frameIndex);
+	renderGeometry(pCommandList, frameIndex);
 	rayTrace(pCommandList, frameIndex);
 }
 
-void RayTracer::UpdateAccelerationStructures(const RayTracing::CommandList* pCommandList, uint8_t frameIndex)
+void TVRayTracer::UpdateAccelerationStructures(const RayTracing::CommandList* pCommandList, uint8_t frameIndex)
 {
 	// Set instance
 	float* const transforms[] =
@@ -307,7 +310,7 @@ void RayTracer::UpdateAccelerationStructures(const RayTracing::CommandList* pCom
 	m_topLevelAS->Build(pCommandList, m_scratch.get(), m_instances[frameIndex].get(), descriptorPool, true);
 }
 
-void RayTracer::RenderGeometry(const RayTracing::CommandList* pCommandList, uint8_t frameIndex)
+void TVRayTracer::renderGeometry(const RayTracing::CommandList* pCommandList, uint8_t frameIndex)
 {
 	// Bind the heaps
 	const DescriptorPool descriptorPools[] =
@@ -331,6 +334,7 @@ void RayTracer::RenderGeometry(const RayTracing::CommandList* pCommandList, uint
 	pCommandList->Barrier(numBarriers, barriers);
 }
 
+/*
 void RayTracer::RayTrace(const RayTracing::CommandList* pCommandList, uint8_t frameIndex)
 {
 	// Bind the heaps
@@ -343,24 +347,29 @@ void RayTracer::RayTrace(const RayTracing::CommandList* pCommandList, uint8_t fr
 
 	rayTrace(pCommandList, frameIndex);
 }
+*/
 
-const Texture2D::uptr* RayTracer::GetRayTracingOutputs() const
+const Texture2D::uptr* TVRayTracer::GetRayTracingOutputs() const
 {
 	return m_outputViews;
 }
 
-const RenderTarget::uptr* RayTracer::GetGBuffers() const
+const RenderTarget::uptr* TVRayTracer::GetGBuffers() const
 {
 	return m_gbuffers;
 }
 
-const DepthStencil::sptr RayTracer::GetDepth() const
+const DepthStencil::sptr TVRayTracer::GetDepth() const
 {
 	return m_depth;
 }
 
-bool RayTracer::createVB(RayTracing::CommandList* pCommandList, uint32_t numVert,
-	uint32_t stride, const uint8_t* pData, vector<Resource::uptr>& uploaders)
+bool TVRayTracer::createVB(
+	RayTracing::CommandList* pCommandList,
+	uint32_t                 numVert,
+	uint32_t                 stride,
+	const uint8_t* pData,
+	vector<Resource::uptr>& uploaders)
 {
 	auto& vertexBuffer = m_vertexBuffers[MODEL_OBJ];
 	vertexBuffer = VertexBuffer::MakeUnique();
@@ -373,8 +382,11 @@ bool RayTracer::createVB(RayTracing::CommandList* pCommandList, uint32_t numVert
 		sizeof(Vertex) * numVert, 0, ResourceState::NON_PIXEL_SHADER_RESOURCE);
 }
 
-bool RayTracer::createIB(RayTracing::CommandList* pCommandList, uint32_t numIndices,
-	const uint32_t* pData, vector<Resource::uptr>& uploaders)
+bool TVRayTracer::createIB(
+	RayTracing::CommandList* pCommandList,
+	uint32_t                 numIndices,
+	const uint32_t* pData,
+	vector<Resource::uptr>& uploaders)
 {
 	m_numIndices[MODEL_OBJ] = numIndices;
 
@@ -389,7 +401,9 @@ bool RayTracer::createIB(RayTracing::CommandList* pCommandList, uint32_t numIndi
 		byteWidth, 0, ResourceState::NON_PIXEL_SHADER_RESOURCE);
 }
 
-bool RayTracer::createGroundMesh(RayTracing::CommandList* pCommandList, vector<Resource::uptr>& uploaders)
+bool TVRayTracer::createGroundMesh(
+	RayTracing::CommandList* pCommandList,
+	vector<Resource::uptr>& uploaders)
 {
 	// Vertex buffer
 	{
@@ -477,7 +491,7 @@ bool RayTracer::createGroundMesh(RayTracing::CommandList* pCommandList, vector<R
 	return true;
 }
 
-bool RayTracer::createInputLayout()
+bool TVRayTracer::createInputLayout()
 {
 	// Define the vertex input layout.
 	const InputElement inputElements[] =
@@ -491,7 +505,7 @@ bool RayTracer::createInputLayout()
 	return true;
 }
 
-bool RayTracer::createPipelineLayouts()
+bool TVRayTracer::createPipelineLayouts()
 {
 	// This is a pipeline layout for Z prepass
 	{
@@ -542,7 +556,7 @@ bool RayTracer::createPipelineLayouts()
 	return true;
 }
 
-bool RayTracer::createPipelines(Format rtFormat, Format dsFormat)
+bool TVRayTracer::createPipelines(Format rtFormat, Format dsFormat)
 {
 	auto vsIndex = 0u;
 	auto psIndex = 0u;
@@ -585,7 +599,7 @@ bool RayTracer::createPipelines(Format rtFormat, Format dsFormat)
 	// Ray tracing pass
 	{
 		N_RETURN(m_shaderPool->CreateShader(Shader::Stage::CS, csIndex, L"RayTracing.cso"), false);
-		
+
 		const auto state = RayTracing::State::MakeUnique();
 		state->SetShaderLibrary(m_shaderPool->GetShader(Shader::Stage::CS, csIndex++));
 		state->SetHitGroup(HIT_GROUP_REFLECTION, HitGroupNames[HIT_GROUP_REFLECTION], ClosestHitShaderNames[HIT_GROUP_REFLECTION]);
@@ -601,7 +615,7 @@ bool RayTracer::createPipelines(Format rtFormat, Format dsFormat)
 	return true;
 }
 
-bool RayTracer::createDescriptorTables()
+bool TVRayTracer::createDescriptorTables()
 {
 	//m_descriptorTableCache.AllocateDescriptorPool(CBV_SRV_UAV_POOL, NumUAVs + NUM_MESH * 2);
 
@@ -672,7 +686,7 @@ bool RayTracer::createDescriptorTables()
 		};
 		const auto descriptorTable = Util::DescriptorTable::MakeUnique();
 		descriptorTable->SetDescriptors(0, static_cast<uint32_t>(size(descriptors)), descriptors);
-		m_framebuffer = descriptorTable->GetFramebuffer(m_descriptorTableCache.get(), & m_depth->GetDSV());
+		m_framebuffer = descriptorTable->GetFramebuffer(m_descriptorTableCache.get(), &m_depth->GetDSV());
 	}
 
 	// Create the sampler
@@ -686,7 +700,7 @@ bool RayTracer::createDescriptorTables()
 	return true;
 }
 
-bool RayTracer::buildAccelerationStructures(const RayTracing::CommandList* pCommandList, GeometryBuffer* pGeometries)
+bool TVRayTracer::buildAccelerationStructures(const RayTracing::CommandList* pCommandList, GeometryBuffer* pGeometries)
 {
 	// Set geometries
 	VertexBufferView vertexBufferViews[NUM_MESH];
@@ -750,7 +764,7 @@ bool RayTracer::buildAccelerationStructures(const RayTracing::CommandList* pComm
 	return true;
 }
 
-bool RayTracer::buildShaderTables()
+bool TVRayTracer::buildShaderTables()
 {
 	// Get shader identifiers.
 	const auto shaderIDSize = ShaderRecord::GetShaderIDSize(m_device.get());
@@ -783,7 +797,7 @@ bool RayTracer::buildShaderTables()
 	return true;
 }
 
-void RayTracer::zPrepass(const XUSG::CommandList* pCommandList, uint8_t frameIndex)
+void TVRayTracer::zPrepass(const XUSG::CommandList* pCommandList, uint8_t frameIndex)
 {
 	// Set depth barrier to write
 	ResourceBarrier barrier;
@@ -817,7 +831,7 @@ void RayTracer::zPrepass(const XUSG::CommandList* pCommandList, uint8_t frameInd
 	}
 }
 
-void RayTracer::gbufferPass(const XUSG::CommandList* pCommandList, uint8_t frameIndex, bool depthClear)
+void TVRayTracer::gbufferPass(const XUSG::CommandList* pCommandList, uint8_t frameIndex, bool depthClear)
 {
 	// Set barriers
 	ResourceBarrier barriers[5];
@@ -864,7 +878,7 @@ void RayTracer::gbufferPass(const XUSG::CommandList* pCommandList, uint8_t frame
 	}
 }
 
-void RayTracer::rayTrace(const RayTracing::CommandList* pCommandList, uint8_t frameIndex)
+void TVRayTracer::rayTrace(const RayTracing::CommandList* pCommandList, uint8_t frameIndex)
 {
 	// Bind the acceleration structure and dispatch rays.
 	pCommandList->SetComputePipelineLayout(m_pipelineLayouts[RT_GLOBAL_LAYOUT]);

@@ -64,7 +64,7 @@ bool Denoiser::Init(CommandList* pCommandList, uint32_t width, uint32_t height, 
 }
 
 void Denoiser::Denoise(const CommandList* pCommandList, uint32_t numBarriers,
-	ResourceBarrier* pBarriers, bool useSharedMem)
+	ResourceBarrier* pBarriers)
 {
 	m_frameParity = !m_frameParity;
 
@@ -76,8 +76,8 @@ void Denoiser::Denoise(const CommandList* pCommandList, uint32_t numBarriers,
 	};
 	pCommandList->SetDescriptorPools(static_cast<uint32_t>(size(descriptorPools)), descriptorPools);
 
-	reflectionSpatialFilter(pCommandList, numBarriers, pBarriers, useSharedMem);
-	diffuseSpatialFilter(pCommandList, numBarriers, pBarriers, useSharedMem);
+	reflectionSpatialFilter(pCommandList, numBarriers, pBarriers);
+	diffuseSpatialFilter(pCommandList, numBarriers, pBarriers);
 	temporalSS(pCommandList);
 }
 
@@ -379,7 +379,7 @@ bool Denoiser::createDescriptorTables()
 }
 
 void Denoiser::reflectionSpatialFilter(const CommandList* pCommandList, uint32_t numBarriers,
-	ResourceBarrier* pBarriers, bool useSharedMem)
+	ResourceBarrier* pBarriers)
 {
 	// Horizontal pass
 	{
@@ -392,16 +392,8 @@ void Denoiser::reflectionSpatialFilter(const CommandList* pCommandList, uint32_t
 		pCommandList->SetComputeDescriptorTable(SHADER_RESOURCES, m_srvTables[SRV_TABLE_SPF_RFL]);
 		pCommandList->SetComputeDescriptorTable(G_BUFFERS, m_srvTables[SRV_TABLE_GB]);
 
-		if (useSharedMem)
-		{
-			pCommandList->SetPipelineState(m_pipelines[SPATIAL_H_RFL_S]);
-			pCommandList->Dispatch(DIV_UP(m_viewport.x, 32), m_viewport.y, 1);
-		}
-		else
-		{
-			pCommandList->SetPipelineState(m_pipelines[SPATIAL_H_RFL]);
-			pCommandList->Dispatch(DIV_UP(m_viewport.x, 8), DIV_UP(m_viewport.y, 8), 1);
-		}
+		pCommandList->SetPipelineState(m_pipelines[SPATIAL_H_RFL_S]);
+		pCommandList->Dispatch(DIV_UP(m_viewport.x, 32), m_viewport.y, 1);
 	}
 
 	// Vertical pass
@@ -415,21 +407,13 @@ void Denoiser::reflectionSpatialFilter(const CommandList* pCommandList, uint32_t
 		pCommandList->SetComputeDescriptorTable(SHADER_RESOURCES, m_srvTables[SRV_TABLE_SPF_RFL + m_frameParity]);
 		pCommandList->SetComputeDescriptorTable(G_BUFFERS, m_srvTables[SRV_TABLE_GB]);
 
-		if (useSharedMem)
-		{
-			pCommandList->SetPipelineState(m_pipelines[SPATIAL_V_RFL_S]);
-			pCommandList->Dispatch(m_viewport.x, DIV_UP(m_viewport.y, 32), 1);
-		}
-		else
-		{
-			pCommandList->SetPipelineState(m_pipelines[SPATIAL_V_RFL]);
-			pCommandList->Dispatch(DIV_UP(m_viewport.x, 8), DIV_UP(m_viewport.y, 8), 1);
-		}
+		pCommandList->SetPipelineState(m_pipelines[SPATIAL_V_RFL_S]);
+		pCommandList->Dispatch(m_viewport.x, DIV_UP(m_viewport.y, 32), 1);
 	}
 }
 
 void Denoiser::diffuseSpatialFilter(const CommandList* pCommandList, uint32_t numBarriers,
-	ResourceBarrier* pBarriers, bool useSharedMem)
+	ResourceBarrier* pBarriers)
 {
 	// Horizontal pass
 	{
@@ -442,16 +426,8 @@ void Denoiser::diffuseSpatialFilter(const CommandList* pCommandList, uint32_t nu
 		pCommandList->SetComputeDescriptorTable(SHADER_RESOURCES, m_srvTables[SRV_TABLE_SPF_DFF]);
 		pCommandList->SetComputeDescriptorTable(G_BUFFERS, m_srvTables[SRV_TABLE_GB]);
 
-		if (useSharedMem)
-		{
-			pCommandList->SetPipelineState(m_pipelines[SPATIAL_H_DFF_S]);
-			pCommandList->Dispatch(DIV_UP(m_viewport.x, 32), m_viewport.y, 1);
-		}
-		else
-		{
-			pCommandList->SetPipelineState(m_pipelines[SPATIAL_H_DFF]);
-			pCommandList->Dispatch(DIV_UP(m_viewport.x, 8), DIV_UP(m_viewport.y, 8), 1);
-		}
+		pCommandList->SetPipelineState(m_pipelines[SPATIAL_H_DFF_S]);
+		pCommandList->Dispatch(DIV_UP(m_viewport.x, 32), m_viewport.y, 1);
 	}
 
 	// Vertical pass
@@ -466,16 +442,8 @@ void Denoiser::diffuseSpatialFilter(const CommandList* pCommandList, uint32_t nu
 		pCommandList->SetComputeDescriptorTable(SHADER_RESOURCES, m_srvTables[SRV_TABLE_SPF_DFF + m_frameParity]);
 		pCommandList->SetComputeDescriptorTable(G_BUFFERS, m_srvTables[SRV_TABLE_GB]);
 
-		if (useSharedMem)
-		{
-			pCommandList->SetPipelineState(m_pipelines[SPATIAL_V_DFF_S]);
-			pCommandList->Dispatch(m_viewport.x, DIV_UP(m_viewport.y, 32), 1);
-		}
-		else
-		{
-			pCommandList->SetPipelineState(m_pipelines[SPATIAL_V_DFF]);
-			pCommandList->Dispatch(DIV_UP(m_viewport.x, 8), DIV_UP(m_viewport.y, 8), 1);
-		}
+		pCommandList->SetPipelineState(m_pipelines[SPATIAL_V_DFF_S]);
+		pCommandList->Dispatch(m_viewport.x, DIV_UP(m_viewport.y, 32), 1);
 	}
 }
 

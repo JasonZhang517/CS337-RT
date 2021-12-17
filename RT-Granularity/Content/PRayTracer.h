@@ -7,7 +7,7 @@
 #include "Core/XUSG.h"
 #include "RayTracing/XUSGRayTracing.h"
 
-class RayTracer
+class PRayTracer
 {
 public:
 	enum MeshIndex : uint32_t
@@ -18,28 +18,24 @@ public:
 		NUM_MESH
 	};
 
-	RayTracer(const XUSG::RayTracing::Device::sptr& device);
-	virtual ~RayTracer();
+	PRayTracer(const XUSG::RayTracing::Device::sptr& device);
+	virtual ~PRayTracer();
 
 	bool Init(XUSG::RayTracing::CommandList* pCommandList, uint32_t width, uint32_t height,
 		std::vector<XUSG::Resource::uptr>& uploaders, XUSG::RayTracing::GeometryBuffer* pGeometries,
 		const char* fileName, const wchar_t* envFileName, XUSG::Format rtFormat,
 		const DirectX::XMFLOAT4& posScale = DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f),
 		uint8_t maxGBufferMips = 1);
-	void SetMetallic(uint32_t meshIdx, float metallic);
 	void UpdateFrame(uint8_t frameIndex, DirectX::CXMVECTOR eyePt, DirectX::CXMMATRIX viewProj, float timeStep);
 	void Render(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex);
 	void UpdateAccelerationStructures(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex);
-	void RenderGeometry(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex);
-	void RayTrace(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex);
 
 	const XUSG::Texture2D::uptr* GetRayTracingOutputs() const;
 	const XUSG::RenderTarget::uptr* GetGBuffers() const;
 	const XUSG::DepthStencil::sptr GetDepth() const;
 
 	static const uint8_t FrameCount = 3;
-
-protected:
+private:
 	enum PipelineLayoutIndex : uint8_t
 	{
 		Z_PREPASS_LAYOUT,
@@ -115,6 +111,7 @@ protected:
 
 	void zPrepass(const XUSG::CommandList* pCommandList, uint8_t frameIndex);
 	void gbufferPass(const XUSG::CommandList* pCommandList, uint8_t frameIndex, bool depthClear = false);
+	void renderGeometry(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex);
 	void rayTrace(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex);
 
 	XUSG::RayTracing::Device::sptr m_device;

@@ -21,20 +21,19 @@ static const float g_FOVAngleY = PIDIV4;
 static const float g_zNear = 1.0f;
 static const float g_zFar = 1000.0f;
 
-RayTracedGGX::RayTracedGGX(uint32_t width, uint32_t height, std::wstring name) :
+RTGranularity::RTGranularity(uint32_t width, uint32_t height, std::wstring name) :
 	DXFramework(width, height, name),
 	m_isDxrSupported(false),
 	m_frameIndex(0),
 	m_viewport(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height)),
 	m_scissorRect(0, 0, static_cast<long>(width), static_cast<long>(height)),
-	// m_asyncCompute(1),
-	m_currentMesh(0),
-	m_useSharedMem(false),
+	// m_currentMesh(0),
 	m_isPaused(false),
 	m_tracking(false),
 	m_meshFileName("Assets/dragon.obj"),
 	m_envFileName(L"Assets/rnl_cross.dds"),
-	m_meshPosScale(0.0f, 0.0f, 0.0f, 1.0f)
+	m_meshPosScale(0.0f, 0.0f, 0.0f, 1.0f),
+	m_currentRTType(PER_PIXEL_RT)
 {
 #if defined (_DEBUG)
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
@@ -45,24 +44,24 @@ RayTracedGGX::RayTracedGGX(uint32_t width, uint32_t height, std::wstring name) :
 	freopen_s(&stream, "CONOUT$", "w+t", stderr);
 #endif
 
-	for (auto& metallic : m_metallics) metallic = 1.0f;
+	// for (auto& metallic : m_metallics) metallic = 1.0f;
 }
 
-RayTracedGGX::~RayTracedGGX()
+RTGranularity::~RTGranularity()
 {
 #if defined (_DEBUG)
 	FreeConsole();
 #endif
 }
 
-void RayTracedGGX::OnInit()
+void RTGranularity::OnInit()
 {
 	LoadPipeline();
 	LoadAssets();
 }
 
 // Load the rendering pipeline dependencies.
-void RayTracedGGX::LoadPipeline()
+void RTGranularity::LoadPipeline()
 {
 	auto dxgiFactoryFlags = 0u;
 
@@ -134,21 +133,21 @@ void RayTracedGGX::LoadPipeline()
 		N_RETURN(m_renderTargets[n]->CreateFromSwapChain(m_device.get(), m_swapChain.get(), n), ThrowIfFailed(E_FAIL));
 
 		for (uint8_t i = 0; i < COMMAND_ALLOCATOR_COUNT; ++i) m_commandAllocators[i][n] = CommandAllocator::MakeUnique();
-		N_RETURN(m_commandAllocators[ALLOCATOR_UPDATE_AS][n]->Create(m_device.get(), CommandListType::COMPUTE,
-			(L"UpdateASAllocator" + to_wstring(n)).c_str()), ThrowIfFailed(E_FAIL));
+		// N_RETURN(m_commandAllocators[ALLOCATOR_UPDATE_AS][n]->Create(m_device.get(), CommandListType::COMPUTE,
+		//	(L"UpdateASAllocator" + to_wstring(n)).c_str()), ThrowIfFailed(E_FAIL));
 		N_RETURN(m_commandAllocators[ALLOCATOR_GEOMETRY][n]->Create(m_device.get(), CommandListType::DIRECT,
 			(L"GeometryAllocator" + to_wstring(n)).c_str()), ThrowIfFailed(E_FAIL));
 		N_RETURN(m_commandAllocators[ALLOCATOR_GRAPHICS][n]->Create(m_device.get(), CommandListType::DIRECT,
 			(L"RayTracingAllocator" + to_wstring(n)).c_str()), ThrowIfFailed(E_FAIL));
 		N_RETURN(m_commandAllocators[ALLOCATOR_COMPUTE][n]->Create(m_device.get(), CommandListType::COMPUTE,
 			(L"ComputeAllocator" + to_wstring(n)).c_str()), ThrowIfFailed(E_FAIL));
-		N_RETURN(m_commandAllocators[ALLOCATOR_IMAGE][n]->Create(m_device.get(), CommandListType::DIRECT,
-			(L"ImageAllocator" + to_wstring(n)).c_str()), ThrowIfFailed(E_FAIL));
+		// N_RETURN(m_commandAllocators[ALLOCATOR_IMAGE][n]->Create(m_device.get(), CommandListType::DIRECT,
+		//	(L"ImageAllocator" + to_wstring(n)).c_str()), ThrowIfFailed(E_FAIL));
 	}
 }
 
 // Load the sample assets.
-void RayTracedGGX::LoadAssets()
+void RTGranularity::LoadAssets()
 {
 	// Create the command lists.
 	m_commandLists[UNIVERSAL] = RayTracing::CommandList::MakeUnique();
@@ -168,8 +167,9 @@ void RayTracedGGX::LoadAssets()
 	for (auto& commandList : m_commandLists)
 		N_RETURN(commandList->CreateInterface(m_device.get()), ThrowIfFailed(E_FAIL));
 
-	// Create ray tracer
 	vector<Resource::uptr> uploaders(0);
+
+	// Create ray tracer
 	{
 		m_rayTracer = make_unique<RayTracer>(m_device);
 		if (!m_rayTracer) ThrowIfFailed(E_FAIL);
@@ -232,7 +232,7 @@ void RayTracedGGX::LoadAssets()
 }
 
 // Update frame-based values.
-void RayTracedGGX::OnUpdate()
+void RTGranularity::OnUpdate()
 {
 	// Timer
 	static auto time = 0.0, pauseTime = 0.0;
@@ -252,7 +252,7 @@ void RayTracedGGX::OnUpdate()
 }
 
 // Render the scene.
-void RayTracedGGX::OnRender()
+void RTGranularity::OnRender()
 {
 	// Record all the commands we need to render the scene into the command list.
 	PopulateCommandList();
@@ -266,7 +266,7 @@ void RayTracedGGX::OnRender()
 	MoveToNextFrame();
 }
 
-void RayTracedGGX::OnDestroy()
+void RTGranularity::OnDestroy()
 {
 	// Ensure that the GPU is no longer referencing resources that are about to be
 	// cleaned up by the destructor.
@@ -276,15 +276,16 @@ void RayTracedGGX::OnDestroy()
 }
 
 // User hot-key interactions.
-void RayTracedGGX::OnKeyUp(uint8_t key)
+void RTGranularity::OnKeyUp(uint8_t key)
 {
-	auto& metallic = m_metallics[m_currentMesh];
+	// auto& metallic = m_metallics[m_currentMesh];
 
 	switch (key)
 	{
 	case VK_SPACE:
 		m_isPaused = !m_isPaused;
 		break;
+	/*
 	case VK_LEFT:
 		m_currentMesh = (m_currentMesh + RayTracer::NUM_MESH - 1) % RayTracer::NUM_MESH;
 		break;
@@ -299,25 +300,23 @@ void RayTracedGGX::OnKeyUp(uint8_t key)
 		metallic = (max)(metallic - 0.25f, 0.0f);
 		m_rayTracer->SetMetallic(m_currentMesh, metallic);
 		break;
-	case 'V':
-		m_useSharedMem = !m_useSharedMem;
-		break;
+	*/
 	}
 }
 
 // User camera interactions.
-void RayTracedGGX::OnLButtonDown(float posX, float posY)
+void RTGranularity::OnLButtonDown(float posX, float posY)
 {
 	m_tracking = true;
 	m_mousePt = XMFLOAT2(posX, posY);
 }
 
-void RayTracedGGX::OnLButtonUp(float posX, float posY)
+void RTGranularity::OnLButtonUp(float posX, float posY)
 {
 	m_tracking = false;
 }
 
-void RayTracedGGX::OnMouseMove(float posX, float posY)
+void RTGranularity::OnMouseMove(float posX, float posY)
 {
 	if (m_tracking)
 	{
@@ -346,7 +345,7 @@ void RayTracedGGX::OnMouseMove(float posX, float posY)
 	}
 }
 
-void RayTracedGGX::OnMouseWheel(float deltaZ, float posX, float posY)
+void RTGranularity::OnMouseWheel(float deltaZ, float posX, float posY)
 {
 	const auto focusPt = XMLoadFloat3(&m_focusPt);
 	auto eyePt = XMLoadFloat3(&m_eyePt);
@@ -362,12 +361,12 @@ void RayTracedGGX::OnMouseWheel(float deltaZ, float posX, float posY)
 	XMStoreFloat4x4(&m_view, view);
 }
 
-void RayTracedGGX::OnMouseLeave()
+void RTGranularity::OnMouseLeave()
 {
 	m_tracking = false;
 }
 
-void RayTracedGGX::ParseCommandLineArgs(wchar_t* argv[], int argc)
+void RTGranularity::ParseCommandLineArgs(wchar_t* argv[], int argc)
 {
 	DXFramework::ParseCommandLineArgs(argv, argc);
 
@@ -388,12 +387,12 @@ void RayTracedGGX::ParseCommandLineArgs(wchar_t* argv[], int argc)
 			if (i + 1 < argc) i += swscanf_s(argv[i + 1], L"%f", &m_meshPosScale.w);
 		}
 		else if (_wcsnicmp(argv[i], L"-env", wcslen(argv[i])) == 0 ||
-			_wcsnicmp(argv[i], L"/env", wcslen(argv[i])) == 0)
+			     _wcsnicmp(argv[i], L"/env", wcslen(argv[i])) == 0)
 			m_envFileName = i + 1 < argc ? argv[++i] : m_envFileName;
 	}
 }
 
-void RayTracedGGX::PopulateCommandList()
+void RTGranularity::PopulateCommandList()
 {
 	// Command list allocators can only be reset when the associated 
 	// command lists have finished execution on the GPU; apps should use 
@@ -413,7 +412,7 @@ void RayTracedGGX::PopulateCommandList()
 
 	ResourceBarrier barriers[3];
 	auto numBarriers = 0u;
-	m_denoiser->Denoise(pCommandList, numBarriers, barriers, m_useSharedMem);
+	m_denoiser->Denoise(pCommandList, numBarriers, barriers);
 
 	numBarriers = m_renderTargets[m_frameIndex]->SetBarrier(barriers, ResourceState::RENDER_TARGET);
 	m_denoiser->ToneMap(pCommandList, m_renderTargets[m_frameIndex]->GetRTV(), numBarriers, barriers);
@@ -425,7 +424,8 @@ void RayTracedGGX::PopulateCommandList()
 	N_RETURN(pCommandList->Close(), ThrowIfFailed(E_FAIL));
 }
 
-void RayTracedGGX::PopulateUpdateASCommandList(CommandType commandType)
+/*
+void RTGranularity::PopulateUpdateASCommandList(CommandType commandType)
 {
 	// Command list allocators can only be reset when the associated 
 	// command lists have finished execution on the GPU; apps should use 
@@ -445,7 +445,7 @@ void RayTracedGGX::PopulateUpdateASCommandList(CommandType commandType)
 	N_RETURN(pCommandList->Close(), ThrowIfFailed(E_FAIL));
 }
 
-void RayTracedGGX::PopulateGeometryCommandList(CommandType commandType)
+void RTGranularity::PopulateGeometryCommandList(CommandType commandType)
 {
 	// Command list allocators can only be reset when the associated 
 	// command lists have finished execution on the GPU; apps should use 
@@ -465,7 +465,7 @@ void RayTracedGGX::PopulateGeometryCommandList(CommandType commandType)
 	N_RETURN(pCommandList->Close(), ThrowIfFailed(E_FAIL));
 }
 
-void RayTracedGGX::PopulateRayTraceCommandList(CommandType commandType)
+void RTGranularity::PopulateRayTraceCommandList(CommandType commandType)
 {
 	// Command list allocators can only be reset when the associated 
 	// command lists have finished execution on the GPU; apps should use 
@@ -485,7 +485,7 @@ void RayTracedGGX::PopulateRayTraceCommandList(CommandType commandType)
 	N_RETURN(pCommandList->Close(), ThrowIfFailed(E_FAIL));
 }
 
-void RayTracedGGX::PopulateImageCommandList(CommandType commandType)
+void RTGranularity::PopulateImageCommandList(CommandType commandType)
 {
 	// Command list allocators can only be reset when the associated 
 	// command lists have finished execution on the GPU; apps should use 
@@ -502,7 +502,7 @@ void RayTracedGGX::PopulateImageCommandList(CommandType commandType)
 	// Record commands.
 	ResourceBarrier barriers[3];
 	auto numBarriers = 0u;
-	m_denoiser->Denoise(pCommandList, numBarriers, barriers, m_useSharedMem);
+	m_denoiser->Denoise(pCommandList, numBarriers, barriers);
 
 	numBarriers = m_renderTargets[m_frameIndex]->SetBarrier(barriers, ResourceState::RENDER_TARGET);
 	m_denoiser->ToneMap(pCommandList, m_renderTargets[m_frameIndex]->GetRTV(), numBarriers, barriers);
@@ -513,9 +513,10 @@ void RayTracedGGX::PopulateImageCommandList(CommandType commandType)
 
 	N_RETURN(pCommandList->Close(), ThrowIfFailed(E_FAIL));
 }
+*/
 
 // Wait for pending GPU work to complete.
-void RayTracedGGX::WaitForGpu()
+void RTGranularity::WaitForGpu()
 {
 	// Schedule a Signal command in the queue.
 	N_RETURN(m_commandQueues[UNIVERSAL]->Signal(m_fence.get(), m_fenceValues[m_frameIndex]), ThrowIfFailed(E_FAIL));
@@ -526,7 +527,7 @@ void RayTracedGGX::WaitForGpu()
 }
 
 // Prepare to render the next frame.
-void RayTracedGGX::MoveToNextFrame()
+void RTGranularity::MoveToNextFrame()
 {
 	// Schedule a Signal command in the queue.
 	const auto currentFenceValue = m_fenceValues[m_frameIndex];
@@ -546,7 +547,7 @@ void RayTracedGGX::MoveToNextFrame()
 	m_fenceValues[m_frameIndex] = currentFenceValue + 1;
 }
 
-double RayTracedGGX::CalculateFrameStats(float* pTimeStep)
+double RTGranularity::CalculateFrameStats(float* pTimeStep)
 {
 	static int frameCnt = 0;
 	static double elapsedTime = 0.0;
@@ -564,17 +565,20 @@ double RayTracedGGX::CalculateFrameStats(float* pTimeStep)
 		frameCnt = 0;
 		elapsedTime = totalTime;
 
+		/*
 		const wchar_t* meshNames[] =
 		{
 			L"Ground",
 			L"Model object"
 		};
+		*/
 
 		wstringstream windowText;
 		windowText << setprecision(2) << fixed << L"    fps: " << fps;
-		windowText << L"    [V] " << (m_useSharedMem ? L"Shared memory" : L"Direct access");
+		/*
 		windowText << L"    [\x2190][\x2192] Current mesh: " << meshNames[m_currentMesh];
 		windowText << L"    [\x2191][\x2193] Metallic: " << m_metallics[m_currentMesh];
+		*/
 		SetCustomWindowText(windowText.str().c_str());
 	}
 
@@ -611,7 +615,7 @@ inline bool IsDirectXRaytracingSupported(IDXGIAdapter1* adapter)
 		&& featureSupportData.RaytracingTier != D3D12_RAYTRACING_TIER_NOT_SUPPORTED;
 }
 
-void RayTracedGGX::EnableDirectXRaytracing(IDXGIAdapter1* adapter)
+void RTGranularity::EnableDirectXRaytracing(IDXGIAdapter1* adapter)
 {
 	// Fallback Layer uses an experimental feature and needs to be enabled before creating a D3D12 device.
 	bool isFallbackSupported = EnableComputeRaytracingFallback(adapter);
@@ -630,7 +634,8 @@ void RayTracedGGX::EnableDirectXRaytracing(IDXGIAdapter1* adapter)
 		OutputDebugString(L"Warning: DirectX Raytracing is not supported by your GPU and driver.\n\n");
 
 		if (!isFallbackSupported)
-			OutputDebugString(L"Could not enable compute based fallback raytracing support (D3D12EnableExperimentalFeatures() failed).\n"\
+			OutputDebugString(
+				L"Could not enable compute based fallback raytracing support (D3D12EnableExperimentalFeatures() failed).\n"\
 				L"Possible reasons: your OS is not in developer mode.\n\n");
 		ThrowIfFailed(isFallbackSupported ? S_OK : E_FAIL);
 	}

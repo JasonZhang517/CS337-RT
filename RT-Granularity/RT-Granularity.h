@@ -13,8 +13,8 @@
 
 #include "DXFramework.h"
 #include "StepTimer.h"
-#include "RayTracer.h"
 #include "Denoiser.h"
+#include "RayTracerSelection.h"
 
 using namespace DirectX;
 
@@ -24,11 +24,11 @@ using namespace DirectX;
 // referenced by the GPU.
 // An example of this can be found in the class method: OnDestroy().
 
-class RayTracedGGX : public DXFramework
+class RTGranularity : public DXFramework
 {
 public:
-	RayTracedGGX(uint32_t width, uint32_t height, std::wstring name);
-	virtual ~RayTracedGGX();
+	RTGranularity(uint32_t width, uint32_t height, std::wstring name);
+	virtual ~RTGranularity();
 
 	virtual void OnInit();
 	virtual void OnUpdate();
@@ -55,11 +55,11 @@ private:
 
 	enum CommandAllocatorIndex : uint8_t
 	{
-		ALLOCATOR_UPDATE_AS,
+		// ALLOCATOR_UPDATE_AS,
 		ALLOCATOR_GEOMETRY,
 		ALLOCATOR_GRAPHICS,
 		ALLOCATOR_COMPUTE,
-		ALLOCATOR_IMAGE,
+		// ALLOCATOR_IMAGE,
 
 		COMMAND_ALLOCATOR_COUNT
 	};
@@ -81,8 +81,8 @@ private:
 	XUSG::RayTracing::CommandList::uptr m_commandLists[COMMAND_TYPE_COUNT];
 
 	// App resources.
-	std::unique_ptr<RayTracer>	m_rayTracer;
-	std::unique_ptr<Denoiser>	m_denoiser;
+	std::unique_ptr<RayTracer>	    m_rayTracer;
+	std::unique_ptr<Denoiser>	    m_denoiser;
 	XMFLOAT4X4	m_proj;
 	XMFLOAT4X4	m_view;
 	XMFLOAT3	m_focusPt;
@@ -97,9 +97,9 @@ private:
 	XUSG::Semaphore m_semaphore;
 
 	// Application state
-	uint32_t	m_currentMesh;
-	float		m_metallics[RayTracer::NUM_MESH];
-	bool		m_useSharedMem;
+	// uint32_t	m_currentMesh;
+	// float		m_metallics[RayTracer::NUM_MESH];
+	uint8_t     m_currentRTType;
 	bool		m_isPaused;
 	StepTimer	m_timer;
 
@@ -109,16 +109,18 @@ private:
 
 	// User external settings
 	std::wstring m_envFileName;
-	std::string m_meshFileName;
-	XMFLOAT4 m_meshPosScale;
+	std::string  m_meshFileName;
+	XMFLOAT4     m_meshPosScale;
 
 	void LoadPipeline();
 	void LoadAssets();
 	void PopulateCommandList();
+	/*
 	void PopulateUpdateASCommandList(CommandType commandType);
 	void PopulateGeometryCommandList(CommandType commandType);
 	void PopulateRayTraceCommandList(CommandType commandType);
 	void PopulateImageCommandList(CommandType commandType);
+	*/
 	void WaitForGpu();
 	void MoveToNextFrame();
 	double CalculateFrameStats(float* fTimeStep = nullptr);

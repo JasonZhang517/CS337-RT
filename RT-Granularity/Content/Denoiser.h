@@ -17,7 +17,7 @@ public:
 		const XUSG::Texture2D::uptr* inputViews, const XUSG::RenderTarget::uptr* pGbuffers,
 		const XUSG::DepthStencil::sptr& depth, uint8_t maxMips = 1);
 	void Denoise(const XUSG::CommandList* pCommandList, uint32_t numBarriers,
-		XUSG::ResourceBarrier* pBarriers, bool useSharedMem = false);
+		XUSG::ResourceBarrier* pBarriers);
 	void ToneMap(const XUSG::CommandList* pCommandList, const XUSG::Descriptor& rtv,
 		uint32_t numBarriers, XUSG::ResourceBarrier* pBarriers);
 
@@ -119,9 +119,9 @@ protected:
 	bool createDescriptorTables();
 
 	void reflectionSpatialFilter(const XUSG::CommandList* pCommandList, uint32_t numBarriers,
-		XUSG::ResourceBarrier* pBarriers, bool useSharedMem);
+		XUSG::ResourceBarrier* pBarriers);
 	void diffuseSpatialFilter(const XUSG::CommandList* pCommandList, uint32_t numBarriers,
-		XUSG::ResourceBarrier* pBarriers, bool useSharedMem);
+		XUSG::ResourceBarrier* pBarriers);
 	void temporalSS(const XUSG::CommandList* pCommandList);
 
 	XUSG::Device::sptr m_device;
