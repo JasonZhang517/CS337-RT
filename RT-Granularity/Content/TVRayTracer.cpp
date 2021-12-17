@@ -170,14 +170,6 @@ bool TVRayTracer::Init(
 	return true;
 }
 
-/*
-void RayTracer::SetMetallic(uint32_t meshIdx, float metallic)
-{
-	const auto pCbData = reinterpret_cast<CBMaterial*>(m_cbMaterials->Map());
-	pCbData->RoughMetals[meshIdx].y = metallic;
-}
-*/
-
 static const XMFLOAT2& IncrementalHalton()
 {
 	static auto haltonBase = XMUINT2(0, 0);
@@ -333,21 +325,6 @@ void TVRayTracer::renderGeometry(const RayTracing::CommandList* pCommandList, ui
 		numBarriers, BARRIER_ALL_SUBRESOURCES, BarrierFlag::BEGIN_ONLY);
 	pCommandList->Barrier(numBarriers, barriers);
 }
-
-/*
-void RayTracer::RayTrace(const RayTracing::CommandList* pCommandList, uint8_t frameIndex)
-{
-	// Bind the heaps
-	const DescriptorPool descriptorPools[] =
-	{
-		m_descriptorTableCache->GetDescriptorPool(CBV_SRV_UAV_POOL),
-		m_descriptorTableCache->GetDescriptorPool(SAMPLER_POOL)
-	};
-	pCommandList->SetDescriptorPools(static_cast<uint32_t>(size(descriptorPools)), descriptorPools);
-
-	rayTrace(pCommandList, frameIndex);
-}
-*/
 
 const Texture2D::uptr* TVRayTracer::GetRayTracingOutputs() const
 {

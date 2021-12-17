@@ -27,13 +27,11 @@ RTGranularity::RTGranularity(uint32_t width, uint32_t height, std::wstring name)
 	m_frameIndex(0),
 	m_viewport(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height)),
 	m_scissorRect(0, 0, static_cast<long>(width), static_cast<long>(height)),
-	// m_currentMesh(0),
 	m_isPaused(false),
 	m_tracking(false),
 	m_meshFileName("Assets/dragon.obj"),
 	m_envFileName(L"Assets/rnl_cross.dds"),
-	m_meshPosScale(0.0f, 0.0f, 0.0f, 1.0f),
-	m_currentRTType(PER_PIXEL_RT)
+	m_meshPosScale(0.0f, 0.0f, 0.0f, 1.0f)
 {
 #if defined (_DEBUG)
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
@@ -43,8 +41,6 @@ RTGranularity::RTGranularity(uint32_t width, uint32_t height, std::wstring name)
 	freopen_s(&stream, "CONOUT$", "w+t", stdout);
 	freopen_s(&stream, "CONOUT$", "w+t", stderr);
 #endif
-
-	// for (auto& metallic : m_metallics) metallic = 1.0f;
 }
 
 RTGranularity::~RTGranularity()
@@ -133,16 +129,12 @@ void RTGranularity::LoadPipeline()
 		N_RETURN(m_renderTargets[n]->CreateFromSwapChain(m_device.get(), m_swapChain.get(), n), ThrowIfFailed(E_FAIL));
 
 		for (uint8_t i = 0; i < COMMAND_ALLOCATOR_COUNT; ++i) m_commandAllocators[i][n] = CommandAllocator::MakeUnique();
-		// N_RETURN(m_commandAllocators[ALLOCATOR_UPDATE_AS][n]->Create(m_device.get(), CommandListType::COMPUTE,
-		//	(L"UpdateASAllocator" + to_wstring(n)).c_str()), ThrowIfFailed(E_FAIL));
 		N_RETURN(m_commandAllocators[ALLOCATOR_GEOMETRY][n]->Create(m_device.get(), CommandListType::DIRECT,
 			(L"GeometryAllocator" + to_wstring(n)).c_str()), ThrowIfFailed(E_FAIL));
 		N_RETURN(m_commandAllocators[ALLOCATOR_GRAPHICS][n]->Create(m_device.get(), CommandListType::DIRECT,
 			(L"RayTracingAllocator" + to_wstring(n)).c_str()), ThrowIfFailed(E_FAIL));
 		N_RETURN(m_commandAllocators[ALLOCATOR_COMPUTE][n]->Create(m_device.get(), CommandListType::COMPUTE,
 			(L"ComputeAllocator" + to_wstring(n)).c_str()), ThrowIfFailed(E_FAIL));
-		// N_RETURN(m_commandAllocators[ALLOCATOR_IMAGE][n]->Create(m_device.get(), CommandListType::DIRECT,
-		//	(L"ImageAllocator" + to_wstring(n)).c_str()), ThrowIfFailed(E_FAIL));
 	}
 }
 
@@ -285,22 +277,6 @@ void RTGranularity::OnKeyUp(uint8_t key)
 	case VK_SPACE:
 		m_isPaused = !m_isPaused;
 		break;
-	/*
-	case VK_LEFT:
-		m_currentMesh = (m_currentMesh + RayTracer::NUM_MESH - 1) % RayTracer::NUM_MESH;
-		break;
-	case VK_RIGHT:
-		m_currentMesh = (m_currentMesh + 1) % RayTracer::NUM_MESH;
-		break;
-	case VK_UP:
-		metallic = (min)(metallic + 0.25f, 1.0f);
-		m_rayTracer->SetMetallic(m_currentMesh, metallic);
-		break;
-	case VK_DOWN:
-		metallic = (max)(metallic - 0.25f, 0.0f);
-		m_rayTracer->SetMetallic(m_currentMesh, metallic);
-		break;
-	*/
 	}
 }
 
@@ -424,97 +400,6 @@ void RTGranularity::PopulateCommandList()
 	N_RETURN(pCommandList->Close(), ThrowIfFailed(E_FAIL));
 }
 
-/*
-void RTGranularity::PopulateUpdateASCommandList(CommandType commandType)
-{
-	// Command list allocators can only be reset when the associated 
-	// command lists have finished execution on the GPU; apps should use 
-	// fences to determine GPU execution progress.
-	const auto commandAllocator = m_commandAllocators[ALLOCATOR_UPDATE_AS][m_frameIndex].get();
-	N_RETURN(commandAllocator->Reset(), ThrowIfFailed(E_FAIL));
-
-	// However, when ExecuteCommandList() is called on a particular command 
-	// list, that command list can then be reset at any time and must be before 
-	// re-recording.
-	const auto pCommandList = m_commandLists[commandType].get();
-	N_RETURN(pCommandList->Reset(commandAllocator, nullptr), ThrowIfFailed(E_FAIL));
-
-	// Record commands.
-	m_rayTracer->UpdateAccelerationStructures(pCommandList, m_frameIndex);
-
-	N_RETURN(pCommandList->Close(), ThrowIfFailed(E_FAIL));
-}
-
-void RTGranularity::PopulateGeometryCommandList(CommandType commandType)
-{
-	// Command list allocators can only be reset when the associated 
-	// command lists have finished execution on the GPU; apps should use 
-	// fences to determine GPU execution progress.
-	const auto commandAllocator = m_commandAllocators[ALLOCATOR_GEOMETRY][m_frameIndex].get();
-	N_RETURN(commandAllocator->Reset(), ThrowIfFailed(E_FAIL));
-
-	// However, when ExecuteCommandList() is called on a particular command 
-	// list, that command list can then be reset at any time and must be before 
-	// re-recording.
-	const auto pCommandList = m_commandLists[commandType].get();
-	N_RETURN(pCommandList->Reset(commandAllocator, nullptr), ThrowIfFailed(E_FAIL));
-
-	// Record commands.
-	m_rayTracer->RenderGeometry(pCommandList, m_frameIndex);
-
-	N_RETURN(pCommandList->Close(), ThrowIfFailed(E_FAIL));
-}
-
-void RTGranularity::PopulateRayTraceCommandList(CommandType commandType)
-{
-	// Command list allocators can only be reset when the associated 
-	// command lists have finished execution on the GPU; apps should use 
-	// fences to determine GPU execution progress.
-	const auto commandAllocator = m_commandAllocators[ALLOCATOR_GRAPHICS][m_frameIndex].get();
-	N_RETURN(commandAllocator->Reset(), ThrowIfFailed(E_FAIL));
-
-	// However, when ExecuteCommandList() is called on a particular command 
-	// list, that command list can then be reset at any time and must be before 
-	// re-recording.
-	const auto pCommandList = m_commandLists[commandType].get();
-	N_RETURN(pCommandList->Reset(commandAllocator, nullptr), ThrowIfFailed(E_FAIL));
-
-	// Record commands.
-	m_rayTracer->RayTrace(pCommandList, m_frameIndex);
-
-	N_RETURN(pCommandList->Close(), ThrowIfFailed(E_FAIL));
-}
-
-void RTGranularity::PopulateImageCommandList(CommandType commandType)
-{
-	// Command list allocators can only be reset when the associated 
-	// command lists have finished execution on the GPU; apps should use 
-	// fences to determine GPU execution progress.
-	const auto commandAllocator = m_commandAllocators[ALLOCATOR_IMAGE][m_frameIndex].get();
-	N_RETURN(commandAllocator->Reset(), ThrowIfFailed(E_FAIL));
-
-	// However, when ExecuteCommandList() is called on a particular command 
-	// list, that command list can then be reset at any time and must be before 
-	// re-recording.
-	const auto pCommandList = m_commandLists[commandType].get();
-	N_RETURN(pCommandList->Reset(commandAllocator, nullptr), ThrowIfFailed(E_FAIL));
-
-	// Record commands.
-	ResourceBarrier barriers[3];
-	auto numBarriers = 0u;
-	m_denoiser->Denoise(pCommandList, numBarriers, barriers);
-
-	numBarriers = m_renderTargets[m_frameIndex]->SetBarrier(barriers, ResourceState::RENDER_TARGET);
-	m_denoiser->ToneMap(pCommandList, m_renderTargets[m_frameIndex]->GetRTV(), numBarriers, barriers);
-
-	// Indicate that the back buffer will now be used to present.
-	numBarriers = m_renderTargets[m_frameIndex]->SetBarrier(barriers, ResourceState::PRESENT);
-	pCommandList->Barrier(numBarriers, barriers);
-
-	N_RETURN(pCommandList->Close(), ThrowIfFailed(E_FAIL));
-}
-*/
-
 // Wait for pending GPU work to complete.
 void RTGranularity::WaitForGpu()
 {
@@ -565,20 +450,9 @@ double RTGranularity::CalculateFrameStats(float* pTimeStep)
 		frameCnt = 0;
 		elapsedTime = totalTime;
 
-		/*
-		const wchar_t* meshNames[] =
-		{
-			L"Ground",
-			L"Model object"
-		};
-		*/
-
 		wstringstream windowText;
+		windowText << L"    type: "  << RayTracerTypeName;
 		windowText << setprecision(2) << fixed << L"    fps: " << fps;
-		/*
-		windowText << L"    [\x2190][\x2192] Current mesh: " << meshNames[m_currentMesh];
-		windowText << L"    [\x2191][\x2193] Metallic: " << m_metallics[m_currentMesh];
-		*/
 		SetCustomWindowText(windowText.str().c_str());
 	}
 

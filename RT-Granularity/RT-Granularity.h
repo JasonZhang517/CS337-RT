@@ -55,11 +55,9 @@ private:
 
 	enum CommandAllocatorIndex : uint8_t
 	{
-		// ALLOCATOR_UPDATE_AS,
 		ALLOCATOR_GEOMETRY,
 		ALLOCATOR_GRAPHICS,
 		ALLOCATOR_COMPUTE,
-		// ALLOCATOR_IMAGE,
 
 		COMMAND_ALLOCATOR_COUNT
 	};
@@ -97,9 +95,6 @@ private:
 	XUSG::Semaphore m_semaphore;
 
 	// Application state
-	// uint32_t	m_currentMesh;
-	// float		m_metallics[RayTracer::NUM_MESH];
-	uint8_t     m_currentRTType;
 	bool		m_isPaused;
 	StepTimer	m_timer;
 
@@ -115,12 +110,6 @@ private:
 	void LoadPipeline();
 	void LoadAssets();
 	void PopulateCommandList();
-	/*
-	void PopulateUpdateASCommandList(CommandType commandType);
-	void PopulateGeometryCommandList(CommandType commandType);
-	void PopulateRayTraceCommandList(CommandType commandType);
-	void PopulateImageCommandList(CommandType commandType);
-	*/
 	void WaitForGpu();
 	void MoveToNextFrame();
 	double CalculateFrameStats(float* fTimeStep = nullptr);
