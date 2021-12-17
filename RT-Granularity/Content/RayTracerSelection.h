@@ -10,19 +10,19 @@
 
 # include "PRayTracer.h"
 using RayTracer = PRayTracer;
-#define RayTracerTypeName L"Per-pixel Ray Tracing";
+#define RayTracerTypeName L"Per-pixel Ray Tracing"
 
 #elif RAYTRACER_TYPE == PER_VERTEX
 
 # include "VRayTracer.h"
 using RayTracer = VRayTracer;
-#define RayTracerTypeName L"Per-vertex Ray Tracing";
+#define RayTracerTypeName L"Per-vertex Ray Tracing"
 
 #elif RAYTRACER_TYPE == PER_TES_VERTEX
 
 # include "TVRayTracer.h"
 using RayTracer = TVRayTracer;
-#define RayTracerTypeName L"Per-tessellated-vertex Ray Tracing";
+#define RayTracerTypeName L"Per-tessellated-vertex Ray Tracing"
 
 #else
 # error "RAYTRACER_TYPE is not properly defined"
