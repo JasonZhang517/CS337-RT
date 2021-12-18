@@ -95,13 +95,19 @@ bool PRayTracer::Init(
 	N_RETURN(createGroundMesh(pCommandList, uploaders), false);
 
 	// Create output views
-	for (uint8_t i = 0; i < NUM_HIT_GROUP; ++i)
+	/*for (uint8_t i = 0; i < NUM_HIT_GROUP; ++i)
 	{
 		auto& outputView = m_outputViews[i];
 		outputView = Texture2D::MakeUnique();
 		N_RETURN(outputView->Create(m_device.get(), width, height, Format::R11G11B10_FLOAT, 1,
 			ResourceFlag::ALLOW_UNORDERED_ACCESS, 1, 1, false, MemoryFlag::NONE,
 			(L"RayTracingOut" + to_wstring(i)).c_str()), false);
+	}*/
+	{
+		m_outputView = Texture2D::MakeUnique();
+		N_RETURN(m_outputView->Create(m_device.get(), width, height, Format::R11G11B10_FLOAT, 1,
+			ResourceFlag::ALLOW_UNORDERED_ACCESS, 1, 1, false, MemoryFlag::NONE,
+			L"RayTracingOut"), false);
 	}
 
 	uint8_t mipCount = max<uint8_t>(Log2((max)(width, height)), 0) + 1;
@@ -325,8 +331,9 @@ void PRayTracer::renderGeometry(const RayTracing::CommandList* pCommandList, uin
 
 	ResourceBarrier barriers[6];
 	auto numBarriers = 0u;
-	for (auto& outputView : m_outputViews)
-		numBarriers = outputView->SetBarrier(barriers, ResourceState::UNORDERED_ACCESS, numBarriers);
+	/*for (auto& outputView : m_outputViews)
+		numBarriers = outputView->SetBarrier(barriers, ResourceState::UNORDERED_ACCESS, numBarriers);*/
+	numBarriers = m_outputView->SetBarrier(barriers, ResourceState::UNORDERED_ACCESS, numBarriers);
 	for (uint8_t i = 0; i < VELOCITY; ++i)
 		numBarriers = m_gbuffers[i]->SetBarrier(barriers, ResourceState::NON_PIXEL_SHADER_RESOURCE, numBarriers, 0);
 	numBarriers = m_gbuffers[VELOCITY]->SetBarrier(barriers, ResourceState::NON_PIXEL_SHADER_RESOURCE,
@@ -349,9 +356,13 @@ void RayTracer::RayTrace(const RayTracing::CommandList* pCommandList, uint8_t fr
 }
 */
 
-const Texture2D::uptr* PRayTracer::GetRayTracingOutputs() const
+//const Texture2D::uptr* PRayTracer::GetRayTracingOutputs() const
+//{
+//	return m_outputViews;
+//}
+const Texture2D* PRayTracer::GetRayTracingOutput() const
 {
-	return m_outputViews;
+	return m_outputView.get();
 }
 
 const RenderTarget::uptr* PRayTracer::GetGBuffers() const
@@ -522,8 +533,9 @@ bool PRayTracer::createPipelineLayouts()
 		pipelineLayout->SetRootCBV(0, 0, 0, Shader::Stage::PS);
 		pipelineLayout->SetRootCBV(1, 0, 0, Shader::Stage::VS);
 		pipelineLayout->SetConstants(2, SizeOfInUint32(uint32_t), 1, 0, Shader::Stage::PS);
-		X_RETURN(m_pipelineLayouts[GBUFFER_PASS_LAYOUT], pipelineLayout->GetPipelineLayout(m_pipelineLayoutCache.get(),
-			PipelineLayoutFlag::ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT, L"GBufferPipelineLayout"), false);
+		auto pipelineLayoutFlags = PipelineLayoutFlag::ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+
+		X_RETURN(m_pipelineLayouts[GBUFFER_PASS_LAYOUT], pipelineLayout->GetPipelineLayout(m_pipelineLayoutCache.get(), pipelineLayoutFlags, L"GBufferPipelineLayout"), false);
 	}
 
 	// Global pipeline layout
@@ -561,6 +573,8 @@ bool PRayTracer::createPipelines(Format rtFormat, Format dsFormat)
 	auto vsIndex = 0u;
 	auto psIndex = 0u;
 	auto csIndex = 0u;
+	auto hsIndex = 0u;
+	auto dsIndex = 0u;
 
 	// Z prepass
 	{
@@ -578,12 +592,16 @@ bool PRayTracer::createPipelines(Format rtFormat, Format dsFormat)
 	// G-buffer pass
 	{
 		N_RETURN(m_shaderPool->CreateShader(Shader::Stage::VS, vsIndex, L"VSBasePass.cso"), false);
+		// N_RETURN(m_shaderPool->CreateShader(Shader::Stage::HS, hsIndex, L"HullShader.cso"), false);
+		// N_RETURN(m_shaderPool->CreateShader(Shader::Stage::DS, dsIndex, L"DomainShader.cso"), false);
 		N_RETURN(m_shaderPool->CreateShader(Shader::Stage::PS, psIndex, L"PSGBuffer.cso"), false);
 
 		const auto state = Graphics::State::MakeUnique();
 		state->IASetInputLayout(m_pInputLayout);
 		state->SetPipelineLayout(m_pipelineLayouts[GBUFFER_PASS_LAYOUT]);
 		state->SetShader(Shader::Stage::VS, m_shaderPool->GetShader(Shader::Stage::VS, vsIndex++));
+		// state->SetShader(Shader::Stage::HS, m_shaderPool->GetShader(Shader::Stage::HS, hsIndex++));
+		// state->SetShader(Shader::Stage::DS, m_shaderPool->GetShader(Shader::Stage::DS, dsIndex++));
 		state->SetShader(Shader::Stage::PS, m_shaderPool->GetShader(Shader::Stage::PS, psIndex++));
 		state->IASetPrimitiveTopologyType(PrimitiveTopologyType::TRIANGLE);
 		state->DSSetState(Graphics::DEPTH_READ_EQUAL, m_graphicsPipelineCache.get());
@@ -598,7 +616,7 @@ bool PRayTracer::createPipelines(Format rtFormat, Format dsFormat)
 
 	// Ray tracing pass
 	{
-		N_RETURN(m_shaderPool->CreateShader(Shader::Stage::CS, csIndex, L"RayTracing.cso"), false);
+		N_RETURN(m_shaderPool->CreateShader(Shader::Stage::CS, csIndex, L"RayTracingNew.cso"), false);
 		
 		const auto state = RayTracing::State::MakeUnique();
 		state->SetShaderLibrary(m_shaderPool->GetShader(Shader::Stage::CS, csIndex++));
@@ -631,7 +649,7 @@ bool PRayTracer::createDescriptorTables()
 	}*/
 
 	// Output UAV
-	{
+	/*{
 		const Descriptor descriptors[] =
 		{
 			m_outputViews[HIT_GROUP_REFLECTION]->GetUAV(),
@@ -639,6 +657,11 @@ bool PRayTracer::createDescriptorTables()
 		};
 		const auto descriptorTable = Util::DescriptorTable::MakeUnique();
 		descriptorTable->SetDescriptors(0, static_cast<uint32_t>(size(descriptors)), descriptors);
+		X_RETURN(m_uavTable, descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get()), false);
+	}*/
+	{
+		const auto descriptorTable = Util::DescriptorTable::MakeUnique();
+		descriptorTable->SetDescriptors(0, 1, &m_outputView->GetUAV());
 		X_RETURN(m_uavTable, descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get()), false);
 	}
 

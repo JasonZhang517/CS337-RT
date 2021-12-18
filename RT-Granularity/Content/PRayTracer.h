@@ -30,7 +30,8 @@ public:
 	void Render(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex);
 	void UpdateAccelerationStructures(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex);
 
-	const XUSG::Texture2D::uptr* GetRayTracingOutputs() const;
+	/*const XUSG::Texture2D::uptr* GetRayTracingOutputs() const;*/
+	const XUSG::Texture2D* GetRayTracingOutput() const;
 	const XUSG::RenderTarget::uptr* GetGBuffers() const;
 	const XUSG::DepthStencil::sptr GetDepth() const;
 
@@ -138,7 +139,8 @@ private:
 	XUSG::VertexBuffer::uptr	m_vertexBuffers[NUM_MESH];
 	XUSG::IndexBuffer::uptr		m_indexBuffers[NUM_MESH];
 
-	XUSG::Texture2D::uptr		m_outputViews[NUM_HIT_GROUP];
+	/*XUSG::Texture2D::uptr		m_outputViews[NUM_HIT_GROUP];*/
+	XUSG::Texture2D::uptr		m_outputView;
 	XUSG::RenderTarget::uptr	m_gbuffers[NUM_GBUFFER];
 	XUSG::DepthStencil::sptr	m_depth;
 

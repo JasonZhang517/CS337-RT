@@ -29,8 +29,8 @@ RTGranularity::RTGranularity(uint32_t width, uint32_t height, std::wstring name)
 	m_scissorRect(0, 0, static_cast<long>(width), static_cast<long>(height)),
 	m_isPaused(false),
 	m_tracking(false),
-	m_meshFileName("Assets/dragon.obj"),
-	m_envFileName(L"Assets/rnl_cross.dds"),
+	m_meshFileName("Assets/bunny.obj"),
+	m_envFileName(L"Assets/galileo_cross.dds"),
 	m_meshPosScale(0.0f, 0.0f, 0.0f, 1.0f)
 {
 #if defined (_DEBUG)
@@ -172,12 +172,19 @@ void RTGranularity::LoadAssets()
 	}
 
 	// Create denoiser
-	{
+	/*{
 		m_denoiser = make_unique<Denoiser>(m_device);
 		if (!m_denoiser) ThrowIfFailed(E_FAIL);
 
 		if (!m_denoiser->Init(pCommandList, m_width, m_height, Format::R8G8B8A8_UNORM,
 			m_rayTracer->GetRayTracingOutputs(), m_rayTracer->GetGBuffers(), m_rayTracer->GetDepth()))
+			ThrowIfFailed(E_FAIL);
+	}*/
+	{
+		m_postProcessor = make_unique<PostProcessor>(m_device);
+		if (!m_postProcessor) ThrowIfFailed(E_FAIL);
+		if (!m_postProcessor->Init(pCommandList, m_width, m_height, Format::R8G8B8A8_UNORM,
+			m_rayTracer->GetRayTracingOutput()))
 			ThrowIfFailed(E_FAIL);
 	}
 
@@ -388,10 +395,11 @@ void RTGranularity::PopulateCommandList()
 
 	ResourceBarrier barriers[3];
 	auto numBarriers = 0u;
-	m_denoiser->Denoise(pCommandList, numBarriers, barriers);
+	// m_denoiser->Denoise(pCommandList, numBarriers, barriers);
 
 	numBarriers = m_renderTargets[m_frameIndex]->SetBarrier(barriers, ResourceState::RENDER_TARGET);
-	m_denoiser->ToneMap(pCommandList, m_renderTargets[m_frameIndex]->GetRTV(), numBarriers, barriers);
+	// m_denoiser->ToneMap(pCommandList, m_renderTargets[m_frameIndex]->GetRTV(), numBarriers, barriers);
+	m_postProcessor->ToneMap(pCommandList, m_renderTargets[m_frameIndex]->GetRTV(), numBarriers, barriers);
 
 	// Indicate that the back buffer will now be used to present.
 	numBarriers = m_renderTargets[m_frameIndex]->SetBarrier(barriers, ResourceState::PRESENT);

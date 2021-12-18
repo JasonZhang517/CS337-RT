@@ -66,6 +66,9 @@
     <ClCompile Include="Content\VRayTracer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Content\PostProcessor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -114,6 +117,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Content\RayTracerSelection.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Content\PostProcessor.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -172,6 +178,12 @@
     <FxCompile Include="Content\Shaders\PixelShader.hlsl">
       <Filter>Shaders\Renderer</Filter>
     </FxCompile>
+    <FxCompile Include="Content\Shaders\VSBasePassNew.hlsl">
+      <Filter>Shaders\Renderer</Filter>
+    </FxCompile>
+    <FxCompile Include="Content\Shaders\PSToneMapNew.hlsl">
+      <Filter>Shaders\Postprocess</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Content\Shaders\BRDFModels.hlsli">
@@ -190,6 +202,9 @@
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="Content\Shaders\RayTracing.hlsl">
+      <Filter>Shaders\Renderer</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Content\Shaders\RayTracingNew.hlsl">
       <Filter>Shaders\Renderer</Filter>
     </CustomBuild>
   </ItemGroup>

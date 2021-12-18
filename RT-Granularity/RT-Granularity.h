@@ -13,7 +13,8 @@
 
 #include "DXFramework.h"
 #include "StepTimer.h"
-#include "Denoiser.h"
+// #include "Denoiser.h"
+#include "PostProcessor.h"
 #include "RayTracerSelection.h"
 
 using namespace DirectX;
@@ -80,7 +81,8 @@ private:
 
 	// App resources.
 	std::unique_ptr<RayTracer>	    m_rayTracer;
-	std::unique_ptr<Denoiser>	    m_denoiser;
+	// std::unique_ptr<Denoiser>	    m_denoiser;
+	std::unique_ptr<PostProcessor>  m_postProcessor;
 	XMFLOAT4X4	m_proj;
 	XMFLOAT4X4	m_view;
 	XMFLOAT3	m_focusPt;
