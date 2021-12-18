@@ -620,7 +620,7 @@ bool PRayTracer::createDescriptorTables()
 	//m_descriptorTableCache.AllocateDescriptorPool(CBV_SRV_UAV_POOL, NumUAVs + NUM_MESH * 2);
 
 	// Acceleration structure UAVs
-	{
+	/*{
 		Descriptor descriptors[NUM_MESH + 1];
 		for (auto i = 0u; i < NUM_MESH; ++i) descriptors[i] = m_bottomLevelASs[i]->GetResult()->GetUAV();
 		descriptors[NUM_MESH] = m_topLevelAS->GetResult()->GetUAV();
@@ -628,7 +628,7 @@ bool PRayTracer::createDescriptorTables()
 		descriptorTable->SetDescriptors(0, static_cast<uint32_t>(size(descriptors)), descriptors);
 		const auto asTable = descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get());
 		N_RETURN(asTable, false);
-	}
+	}*/
 
 	// Output UAV
 	{
