@@ -115,10 +115,6 @@ XCOPY /E/I/Y "$(ProjectDir)\Scripts" "$(OutDir)\Scripts"</Command>
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdafx.h</ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="Common\XUSGObjLoader.cpp" />
-    <ClCompile Include="Content\Denoiser.cpp">
-      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h</ForcedIncludeFiles>
-      <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdafx.h</ForcedIncludeFiles>
-    </ClCompile>
     <ClCompile Include="Content\PostProcessor.cpp" />
     <ClCompile Include="Content\PRayTracer.cpp">
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h</ForcedIncludeFiles>
@@ -149,7 +145,6 @@ XCOPY /E/I/Y "$(ProjectDir)\Scripts" "$(OutDir)\Scripts"</Command>
     <ClInclude Include="Common\StepTimer.h" />
     <ClInclude Include="Common\Win32Application.h" />
     <ClInclude Include="Common\XUSGObjLoader.h" />
-    <ClInclude Include="Content\Denoiser.h" />
     <ClInclude Include="Content\PostProcessor.h" />
     <ClInclude Include="Content\PRayTracer.h" />
     <ClInclude Include="Content\RayTracerSelection.h" />
@@ -159,54 +154,6 @@ XCOPY /E/I/Y "$(ProjectDir)\Scripts" "$(OutDir)\Scripts"</Command>
     <ClInclude Include="stdafx.h" />
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="Content\Shaders\CSSpatial_H_Diff_S.hlsl">
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">6.3</ShaderModel>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.3</ShaderModel>
-    </FxCompile>
-    <FxCompile Include="Content\Shaders\CSSpatial_H_Refl.hlsl">
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">6.3</ShaderModel>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.3</ShaderModel>
-    </FxCompile>
-    <FxCompile Include="Content\Shaders\CSSpatial_H_Diff.hlsl">
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.3</ShaderModel>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">6.3</ShaderModel>
-    </FxCompile>
-    <FxCompile Include="Content\Shaders\CSSpatial_V_Diff.hlsl">
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.3</ShaderModel>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">6.3</ShaderModel>
-    </FxCompile>
-    <FxCompile Include="Content\Shaders\CSSpatial_H_Refl_S.hlsl">
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">6.3</ShaderModel>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.3</ShaderModel>
-    </FxCompile>
-    <FxCompile Include="Content\Shaders\CSSpatial_V_Refl.hlsl">
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">6.3</ShaderModel>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.3</ShaderModel>
-    </FxCompile>
-    <FxCompile Include="Content\Shaders\CSSpatial_V_Refl_S.hlsl">
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">6.3</ShaderModel>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.3</ShaderModel>
-    </FxCompile>
-    <FxCompile Include="Content\Shaders\CSSpatial_V_Diff_S.hlsl">
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">6.3</ShaderModel>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.3</ShaderModel>
-    </FxCompile>
     <FxCompile Include="Content\Shaders\DomainShader.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Domain</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">6.3</ShaderModel>
@@ -229,12 +176,6 @@ XCOPY /E/I/Y "$(ProjectDir)\Scripts" "$(OutDir)\Scripts"</Command>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Hull</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">6.3</ShaderModel>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Hull</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.3</ShaderModel>
-    </FxCompile>
-    <FxCompile Include="Content\Shaders\PixelShader.hlsl">
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">6.3</ShaderModel>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.3</ShaderModel>
     </FxCompile>
     <FxCompile Include="Content\Shaders\PSDepth.hlsl">
@@ -278,13 +219,7 @@ XCOPY /E/I/Y "$(ProjectDir)\Scripts" "$(OutDir)\Scripts"</Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)\%(Filename).cso</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)\%(Filename).cso</Outputs>
     </CustomBuild>
-    <FxCompile Include="Content\Shaders\CSTemporalSS.hlsl">
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.3</ShaderModel>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">6.3</ShaderModel>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
-    </FxCompile>
-    <CustomBuild Include="Content\Shaders\RayTracingNew.hlsl">
+    <CustomBuild Include="Content\Shaders\PRayTracing.hlsl">
       <FileType>Document</FileType>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">"$(SolutionDir)\Libraries\DXRFallback\dxc.exe" /Zi /Fo"$(OutDir)%(Filename).cso" /T"lib_6_3" /nologo "%(FullPath)"</Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)\%(Filename).cso</Outputs>
@@ -296,12 +231,6 @@ XCOPY /E/I/Y "$(ProjectDir)\Scripts" "$(OutDir)\Scripts"</Command>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.3</ShaderModel>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">6.3</ShaderModel>
-    </FxCompile>
-    <FxCompile Include="Content\Shaders\VertexShader.hlsl">
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">6.3</ShaderModel>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.3</ShaderModel>
     </FxCompile>
     <FxCompile Include="Content\Shaders\VSBasePass.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
@@ -330,10 +259,8 @@ XCOPY /E/I/Y "$(ProjectDir)\Scripts" "$(OutDir)\Scripts"</Command>
   </ItemGroup>
   <ItemGroup>
     <None Include="Content\Shaders\BRDFModels.hlsli" />
-    <None Include="Content\Shaders\FilterCommon.hlsli" />
     <None Include="Content\Shaders\Material.hlsli" />
     <None Include="Content\Shaders\MaterialNew.hlsli" />
-    <None Include="Content\Shaders\SpatialFilter.hlsli" />
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

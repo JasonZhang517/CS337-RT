@@ -7,8 +7,8 @@
 //--------------------------------------------------------------------------------------
 struct VSIn
 {
-	float3 Pos : POSITION;
-	float3 Nrm : NORMAL;
+    float3 Pos : POSITION;
+    float3 Nrm : NORMAL;
 };
 
 //--------------------------------------------------------------------------------------
@@ -16,10 +16,10 @@ struct VSIn
 //--------------------------------------------------------------------------------------
 cbuffer cbPerObject
 {
-	matrix	g_worldViewProj;
-	matrix	g_worldViewProjPrev;
-	float3x3 g_worldIT;
-	float2	g_projBias;
+    matrix	g_worldViewProj;
+    matrix	g_worldViewProjPrev;
+    float3x3 g_worldIT;
+    float2	g_projBias;
 };
 
 //--------------------------------------------------------------------------------------
@@ -27,8 +27,8 @@ cbuffer cbPerObject
 //--------------------------------------------------------------------------------------
 float4 main(VSIn input) : SV_POSITION
 {
-	float4 pos = mul(float4(input.Pos, 1.0), g_worldViewProj);
-	pos.xy += g_projBias * pos.w;
+    float4 pos = mul(float4(input.Pos, 1.0), g_worldViewProj);
+    pos.xy += g_projBias * pos.w;
 
-	return pos;
+    return pos;
 }

@@ -25,9 +25,6 @@
     <Filter Include="Shaders">
       <UniqueIdentifier>{08d07ad3-d2bf-4b6d-98f9-a02af3447f31}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Shaders\Denoiser">
-      <UniqueIdentifier>{459ae949-f6f1-483b-bfc0-7fc83ef5572d}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Shaders\Renderer">
       <UniqueIdentifier>{80ef64d9-0d59-4edb-97fe-7f72cb8aafb0}</UniqueIdentifier>
     </Filter>
@@ -52,9 +49,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Content\PRayTracer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Content\Denoiser.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Common\XUSGObjLoader.cpp">
@@ -101,9 +95,6 @@
     <ClInclude Include="Common\D3D12RaytracingHelpers.hpp">
       <Filter>Common\Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Content\Denoiser.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Common\d3d12.h">
       <Filter>Common\Header Files</Filter>
     </ClInclude>
@@ -136,46 +127,13 @@
     <FxCompile Include="Content\Shaders\VSScreenQuad.hlsl">
       <Filter>Shaders\Postprocess</Filter>
     </FxCompile>
-    <FxCompile Include="Content\Shaders\CSTemporalSS.hlsl">
-      <Filter>Shaders\Denoiser</Filter>
-    </FxCompile>
-    <FxCompile Include="Content\Shaders\CSSpatial_H_Refl.hlsl">
-      <Filter>Shaders\Denoiser</Filter>
-    </FxCompile>
-    <FxCompile Include="Content\Shaders\CSSpatial_H_Refl_S.hlsl">
-      <Filter>Shaders\Denoiser</Filter>
-    </FxCompile>
-    <FxCompile Include="Content\Shaders\CSSpatial_V_Refl.hlsl">
-      <Filter>Shaders\Denoiser</Filter>
-    </FxCompile>
-    <FxCompile Include="Content\Shaders\CSSpatial_V_Refl_S.hlsl">
-      <Filter>Shaders\Denoiser</Filter>
-    </FxCompile>
     <FxCompile Include="Content\Shaders\VSDepth.hlsl">
       <Filter>Shaders\Renderer</Filter>
-    </FxCompile>
-    <FxCompile Include="Content\Shaders\CSSpatial_H_Diff.hlsl">
-      <Filter>Shaders\Denoiser</Filter>
-    </FxCompile>
-    <FxCompile Include="Content\Shaders\CSSpatial_V_Diff.hlsl">
-      <Filter>Shaders\Denoiser</Filter>
-    </FxCompile>
-    <FxCompile Include="Content\Shaders\CSSpatial_H_Diff_S.hlsl">
-      <Filter>Shaders\Denoiser</Filter>
-    </FxCompile>
-    <FxCompile Include="Content\Shaders\CSSpatial_V_Diff_S.hlsl">
-      <Filter>Shaders\Denoiser</Filter>
     </FxCompile>
     <FxCompile Include="Content\Shaders\HullShader.hlsl">
       <Filter>Shaders\Renderer</Filter>
     </FxCompile>
     <FxCompile Include="Content\Shaders\DomainShader.hlsl">
-      <Filter>Shaders\Renderer</Filter>
-    </FxCompile>
-    <FxCompile Include="Content\Shaders\VertexShader.hlsl">
-      <Filter>Shaders\Renderer</Filter>
-    </FxCompile>
-    <FxCompile Include="Content\Shaders\PixelShader.hlsl">
       <Filter>Shaders\Renderer</Filter>
     </FxCompile>
     <FxCompile Include="Content\Shaders\VSBasePassNew.hlsl">
@@ -204,12 +162,6 @@
     <None Include="Content\Shaders\Material.hlsli">
       <Filter>Shaders\Renderer</Filter>
     </None>
-    <None Include="Content\Shaders\FilterCommon.hlsli">
-      <Filter>Shaders\Denoiser</Filter>
-    </None>
-    <None Include="Content\Shaders\SpatialFilter.hlsli">
-      <Filter>Shaders\Denoiser</Filter>
-    </None>
     <None Include="packages.config" />
     <None Include="Content\Shaders\MaterialNew.hlsli">
       <Filter>Shaders\Renderer</Filter>
@@ -219,7 +171,7 @@
     <CustomBuild Include="Content\Shaders\RayTracing.hlsl">
       <Filter>Shaders\Renderer</Filter>
     </CustomBuild>
-    <CustomBuild Include="Content\Shaders\RayTracingNew.hlsl">
+    <CustomBuild Include="Content\Shaders\PRayTracing.hlsl">
       <Filter>Shaders\Renderer</Filter>
     </CustomBuild>
   </ItemGroup>
