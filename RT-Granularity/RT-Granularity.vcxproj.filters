@@ -184,6 +184,9 @@
     <FxCompile Include="Content\Shaders\PSToneMapNew.hlsl">
       <Filter>Shaders\Postprocess</Filter>
     </FxCompile>
+    <FxCompile Include="Content\Shaders\PSGBufferNew.hlsl">
+      <Filter>Shaders\Renderer</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Content\Shaders\BRDFModels.hlsli">

@@ -94,15 +94,7 @@ bool PRayTracer::Init(
 
 	N_RETURN(createGroundMesh(pCommandList, uploaders), false);
 
-	// Create output views
-	/*for (uint8_t i = 0; i < NUM_HIT_GROUP; ++i)
-	{
-		auto& outputView = m_outputViews[i];
-		outputView = Texture2D::MakeUnique();
-		N_RETURN(outputView->Create(m_device.get(), width, height, Format::R11G11B10_FLOAT, 1,
-			ResourceFlag::ALLOW_UNORDERED_ACCESS, 1, 1, false, MemoryFlag::NONE,
-			(L"RayTracingOut" + to_wstring(i)).c_str()), false);
-	}*/
+	// Create output view
 	{
 		m_outputView = Texture2D::MakeUnique();
 		N_RETURN(m_outputView->Create(m_device.get(), width, height, Format::R11G11B10_FLOAT, 1,
@@ -175,14 +167,6 @@ bool PRayTracer::Init(
 
 	return true;
 }
-
-/*
-void RayTracer::SetMetallic(uint32_t meshIdx, float metallic)
-{
-	const auto pCbData = reinterpret_cast<CBMaterial*>(m_cbMaterials->Map());
-	pCbData->RoughMetals[meshIdx].y = metallic;
-}
-*/
 
 static const XMFLOAT2& IncrementalHalton()
 {
@@ -356,23 +340,9 @@ void RayTracer::RayTrace(const RayTracing::CommandList* pCommandList, uint8_t fr
 }
 */
 
-//const Texture2D::uptr* PRayTracer::GetRayTracingOutputs() const
-//{
-//	return m_outputViews;
-//}
 const Texture2D* PRayTracer::GetRayTracingOutput() const
 {
 	return m_outputView.get();
-}
-
-const RenderTarget::uptr* PRayTracer::GetGBuffers() const
-{
-	return m_gbuffers;
-}
-
-const DepthStencil::sptr PRayTracer::GetDepth() const
-{
-	return m_depth;
 }
 
 bool PRayTracer::createVB(
@@ -591,10 +561,10 @@ bool PRayTracer::createPipelines(Format rtFormat, Format dsFormat)
 
 	// G-buffer pass
 	{
-		N_RETURN(m_shaderPool->CreateShader(Shader::Stage::VS, vsIndex, L"VSBasePass.cso"), false);
+		N_RETURN(m_shaderPool->CreateShader(Shader::Stage::VS, vsIndex, L"VSBasePassNew.cso"), false);
 		// N_RETURN(m_shaderPool->CreateShader(Shader::Stage::HS, hsIndex, L"HullShader.cso"), false);
 		// N_RETURN(m_shaderPool->CreateShader(Shader::Stage::DS, dsIndex, L"DomainShader.cso"), false);
-		N_RETURN(m_shaderPool->CreateShader(Shader::Stage::PS, psIndex, L"PSGBuffer.cso"), false);
+		N_RETURN(m_shaderPool->CreateShader(Shader::Stage::PS, psIndex, L"PSGBufferNew.cso"), false);
 
 		const auto state = Graphics::State::MakeUnique();
 		state->IASetInputLayout(m_pInputLayout);
@@ -649,16 +619,6 @@ bool PRayTracer::createDescriptorTables()
 	}*/
 
 	// Output UAV
-	/*{
-		const Descriptor descriptors[] =
-		{
-			m_outputViews[HIT_GROUP_REFLECTION]->GetUAV(),
-			m_outputViews[HIT_GROUP_DIFFUSE]->GetUAV()
-		};
-		const auto descriptorTable = Util::DescriptorTable::MakeUnique();
-		descriptorTable->SetDescriptors(0, static_cast<uint32_t>(size(descriptors)), descriptors);
-		X_RETURN(m_uavTable, descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get()), false);
-	}*/
 	{
 		const auto descriptorTable = Util::DescriptorTable::MakeUnique();
 		descriptorTable->SetDescriptors(0, 1, &m_outputView->GetUAV());
@@ -744,11 +704,11 @@ bool PRayTracer::buildAccelerationStructures(const RayTracing::CommandList* pCom
 	for (auto i = 0u; i < NUM_MESH; ++i)
 	{
 		m_bottomLevelASs[i] = BottomLevelAS::MakeUnique();
-		N_RETURN(m_bottomLevelASs[i]->PreBuild(m_device.get(), 1, pGeometries[i], bottomLevelASIndex + i, BuildFlag::PREFER_FAST_BUILD), false);
+		N_RETURN(m_bottomLevelASs[i]->PreBuild(m_device.get(), 1, pGeometries[i], bottomLevelASIndex + i, BuildFlag::NONE), false);
 	}
 	m_topLevelAS = TopLevelAS::MakeUnique();
 	N_RETURN(m_topLevelAS->PreBuild(m_device.get(), NUM_MESH, topLevelASIndex,
-		BuildFlag::ALLOW_UPDATE | BuildFlag::PREFER_FAST_TRACE), false);
+		BuildFlag::ALLOW_UPDATE), false);
 
 	// Create scratch buffer
 	auto scratchSize = m_topLevelAS->GetScratchDataMaxSize();

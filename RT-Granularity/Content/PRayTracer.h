@@ -32,8 +32,6 @@ public:
 
 	/*const XUSG::Texture2D::uptr* GetRayTracingOutputs() const;*/
 	const XUSG::Texture2D* GetRayTracingOutput() const;
-	const XUSG::RenderTarget::uptr* GetGBuffers() const;
-	const XUSG::DepthStencil::sptr GetDepth() const;
 
 	static const uint8_t FrameCount = 3;
 private:
