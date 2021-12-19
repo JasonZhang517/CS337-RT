@@ -7,16 +7,20 @@
 //--------------------------------------------------------------------------------------
 struct VSIn
 {
-	float3	Pos	: POSITION;
-	float3	Nrm	: NORMAL;
+	float3	Pos		: POSITION;
+	float3	Norm	: NORMAL;
 };
 
 struct VSOut
 {
-	float4	Pos		: SV_POSITION;
+	float3	Pos		: WORLDPOS;
 	float3	Norm	: NORMAL;
-	float2	UV		: TEXCOORD;
 };
+
+float3 toXYZ(float4 hpos)
+{
+	return hpos.xyz / hpos.w;
+}
 
 //--------------------------------------------------------------------------------------
 // Constant buffer
@@ -36,12 +40,15 @@ VSOut main(VSIn input)
 {
 	VSOut output;
 
-	const float4 pos = { input.Pos, 1.0 };
-	output.Pos = mul(pos, g_worldViewProj);
+	float4 pos = { input.Pos, 1.0 };
+	pos = mul(pos, g_worldViewProj);
+	pos.xy += g_projBias * pos.w;
 
-	output.Pos.xy += g_projBias * output.Pos.w;
-	output.Norm = mul(input.Nrm, g_worldIT);
-	output.UV = pos.xz * 0.5 + 0.5;
+	output.Pos = toXYZ(pos);
+	output.Norm = mul(input.Norm, g_worldIT);
+
+	/*output.Pos = input.Pos;
+	output.Norm = input.Norm;*/
 	
 	return output;
 }

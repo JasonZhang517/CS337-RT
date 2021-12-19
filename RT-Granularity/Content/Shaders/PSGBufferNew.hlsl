@@ -2,7 +2,7 @@
 // Copyright (c) XU, Tianchen. All rights reserved.
 //--------------------------------------------------------------------------------------
 
-#include "Material.hlsli"
+#include "MaterialNew.hlsli"
 
 //--------------------------------------------------------------------------------------
 // Structs
@@ -11,7 +11,6 @@ struct PSIn
 {
 	float4	Pos		: SV_POSITION;
 	float3	Norm	: NORMAL;
-	float2	UV		: TEXCOORD;
 };
 
 struct PSOut
@@ -27,6 +26,14 @@ struct PSOut
 //--------------------------------------------------------------------------------------
 cbuffer cbPerObject
 {
+	matrix	g_worldViewProj;
+	matrix	g_worldViewProjPrev;
+	float3x3 g_worldIT;
+	float2	g_projBias;
+};
+
+cbuffer cbPerObjectInstance
+{
 	uint g_instanceIdx;
 };
 
@@ -35,11 +42,12 @@ cbuffer cbPerObject
 //--------------------------------------------------------------------------------------
 PSOut main(PSIn input)
 {
+	
 	PSOut output;
 
-	output.BaseColor = getBaseColor(g_instanceIdx, input.UV);
+	output.BaseColor = getBaseColor(g_instanceIdx);
 	output.Normal = min16float4(normalize(input.Norm) * 0.5 + 0.5, (g_instanceIdx + 1) / 2.0);
-	output.RoughMetal = getRoughMetal(g_instanceIdx, input.UV);
+	output.RoughMetal = getRoughMetal(g_instanceIdx);
 	output.Velocity = min16float2(1, 1);
 
 	return output;

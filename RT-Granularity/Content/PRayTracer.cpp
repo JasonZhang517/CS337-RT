@@ -10,6 +10,8 @@
 #undef _INDEPENDENT_DDS_LOADER_
 #include "DirectXPackedVector.h"
 
+// #define USE_COMPLEX_TESSELLATOR
+
 using namespace std;
 using namespace DirectX;
 using namespace XUSG;
@@ -89,8 +91,10 @@ bool PRayTracer::Init(
 	// Load inputs
 	ObjLoader objLoader;
 	if (!objLoader.Import(fileName, true, true)) return false;
-	N_RETURN(createVB(pCommandList, objLoader.GetNumVertices(), objLoader.GetVertexStride(), objLoader.GetVertices(), uploaders), false);
-	N_RETURN(createIB(pCommandList, objLoader.GetNumIndices(), objLoader.GetIndices(), uploaders), false);
+	auto numVertices = objLoader.GetNumVertices();
+	auto numIndices = objLoader.GetNumIndices();
+	N_RETURN(createVB(pCommandList, numVertices, objLoader.GetVertexStride(), objLoader.GetVertices(), uploaders), false);
+	N_RETURN(createIB(pCommandList, numIndices, objLoader.GetIndices(), uploaders), false);
 
 	N_RETURN(createGroundMesh(pCommandList, uploaders), false);
 
@@ -138,12 +142,12 @@ bool PRayTracer::Init(
 		nullptr, MemoryType::UPLOAD, MemoryFlag::NONE, L"CBMaterial"), false);
 	{
 		const auto pCbData = reinterpret_cast<CBMaterial*>(m_cbMaterials->Map());
-		pCbData->BaseColors[0] = XMFLOAT4(0.95f, 0.93f, 0.88f, 1.0f);	// Silver
+		pCbData->BaseColors[GROUND] = XMFLOAT4(0.95f, 0.93f, 0.88f, 1.0f);	// Silver
 		//pCbData->BaseColors[0] = XMFLOAT4(powf(0.92549f, 2.2f), powf(0.69412f, 2.2f), powf(0.6745f, 2.2f), 1.0f); // Rose gold
 		//pCbData->BaseColors[0] = XMFLOAT4(0.72f, 0.43f, 0.47f, 1.0f);	// Rose gold
-		pCbData->BaseColors[1] = XMFLOAT4(1.0f, 0.71f, 0.29f, 1.0f);	// Gold
-		pCbData->RoughMetals[0] = XMFLOAT4(0.5f, 1.0f, 0.0f, 0.0f);
-		pCbData->RoughMetals[1] = XMFLOAT4(0.16f, 1.0f, 0.0f, 0.0f);
+		pCbData->BaseColors[MODEL_OBJ] = XMFLOAT4(1.0f, 0.71f, 0.29f, 1.0f);	// Gold
+		pCbData->RoughMetals[GROUND] = XMFLOAT4(0.5f, 1.0f, 0.0f, 0.0f);
+		pCbData->RoughMetals[MODEL_OBJ] = XMFLOAT4(0.16f, 1.0f, 0.0f, 0.0f);
 	}
 
 	// Load input image
@@ -313,10 +317,8 @@ void PRayTracer::renderGeometry(const RayTracing::CommandList* pCommandList, uin
 	zPrepass(pCommandList, frameIndex);
 	gbufferPass(pCommandList, frameIndex);
 
-	ResourceBarrier barriers[6];
+	ResourceBarrier barriers[1 + NUM_GBUFFER];
 	auto numBarriers = 0u;
-	/*for (auto& outputView : m_outputViews)
-		numBarriers = outputView->SetBarrier(barriers, ResourceState::UNORDERED_ACCESS, numBarriers);*/
 	numBarriers = m_outputView->SetBarrier(barriers, ResourceState::UNORDERED_ACCESS, numBarriers);
 	for (uint8_t i = 0; i < VELOCITY; ++i)
 		numBarriers = m_gbuffers[i]->SetBarrier(barriers, ResourceState::NON_PIXEL_SHADER_RESOURCE, numBarriers, 0);
@@ -324,21 +326,6 @@ void PRayTracer::renderGeometry(const RayTracing::CommandList* pCommandList, uin
 		numBarriers, BARRIER_ALL_SUBRESOURCES, BarrierFlag::BEGIN_ONLY);
 	pCommandList->Barrier(numBarriers, barriers);
 }
-
-/*
-void RayTracer::RayTrace(const RayTracing::CommandList* pCommandList, uint8_t frameIndex)
-{
-	// Bind the heaps
-	const DescriptorPool descriptorPools[] =
-	{
-		m_descriptorTableCache->GetDescriptorPool(CBV_SRV_UAV_POOL),
-		m_descriptorTableCache->GetDescriptorPool(SAMPLER_POOL)
-	};
-	pCommandList->SetDescriptorPools(static_cast<uint32_t>(size(descriptorPools)), descriptorPools);
-
-	rayTrace(pCommandList, frameIndex);
-}
-*/
 
 const Texture2D* PRayTracer::GetRayTracingOutput() const
 {
@@ -353,32 +340,43 @@ bool PRayTracer::createVB(
 	vector<Resource::uptr>&  uploaders)
 {
 	auto& vertexBuffer = m_vertexBuffers[MODEL_OBJ];
+	auto& tessVertexBuffer = m_tessVertexBuffers[MODEL_OBJ];
 	vertexBuffer = VertexBuffer::MakeUnique();
+	tessVertexBuffer = VertexBuffer::MakeUnique();
 	N_RETURN(vertexBuffer->Create(m_device.get(), numVert, sizeof(Vertex),
 		ResourceFlag::NONE, MemoryType::DEFAULT, 1, nullptr, 1,
 		nullptr, 1, nullptr, MemoryFlag::NONE, L"MeshVB"), false);
+	N_RETURN(tessVertexBuffer->Create(m_device.get(), numVert * TessVertexFactor, sizeof(Vertex),
+		ResourceFlag::NONE, MemoryType::DEFAULT, 1, nullptr, 1,
+		nullptr, 1, nullptr, MemoryFlag::NONE, L"TessMeshVB"), false);
+	
 	uploaders.emplace_back(Resource::MakeUnique());
-
 	return vertexBuffer->Upload(pCommandList, uploaders.back().get(), pData,
 		sizeof(Vertex) * numVert, 0, ResourceState::NON_PIXEL_SHADER_RESOURCE);
 }
 
 bool PRayTracer::createIB(
-	RayTracing::CommandList* pCommandList, 
+	RayTracing::CommandList* pCommandList,
 	uint32_t                 numIndices,
 	const uint32_t*          pData, 
 	vector<Resource::uptr>&  uploaders)
 {
 	m_numIndices[MODEL_OBJ] = numIndices;
+	m_tessNumIndices[MODEL_OBJ] = numIndices * TessIndiceFactor;
 
-	auto& indexBuffers = m_indexBuffers[MODEL_OBJ];
+	auto& indexBuffer = m_indexBuffers[MODEL_OBJ];
+	auto& tessIndexBuffer = m_tessIndexBuffers[MODEL_OBJ];
 	const uint32_t byteWidth = sizeof(uint32_t) * numIndices;
-	indexBuffers = IndexBuffer::MakeUnique();
-	N_RETURN(indexBuffers->Create(m_device.get(), byteWidth, Format::R32_UINT, ResourceFlag::NONE,
+	const uint32_t tessByteWidth = byteWidth * TessIndiceFactor;
+	indexBuffer = IndexBuffer::MakeUnique();
+	tessIndexBuffer = IndexBuffer::MakeUnique();
+	N_RETURN(indexBuffer->Create(m_device.get(), byteWidth, Format::R32_UINT, ResourceFlag::NONE,
 		MemoryType::DEFAULT, 1, nullptr, 1, nullptr, 1, nullptr, MemoryFlag::NONE, L"MeshIB"), false);
+	N_RETURN(tessIndexBuffer->Create(m_device.get(), tessByteWidth, Format::R32_UINT, ResourceFlag::NONE,
+		MemoryType::DEFAULT, 1, nullptr, 1, nullptr, 1, nullptr, MemoryFlag::NONE, L"TessMeshIB"), false);
+	
 	uploaders.emplace_back(Resource::MakeUnique());
-
-	return indexBuffers->Upload(pCommandList, uploaders.back().get(), pData,
+	return indexBuffer->Upload(pCommandList, uploaders.back().get(), pData,
 		byteWidth, 0, ResourceState::NON_PIXEL_SHADER_RESOURCE);
 }
 
@@ -423,12 +421,18 @@ bool PRayTracer::createGroundMesh(
 		};
 
 		auto& vertexBuffer = m_vertexBuffers[GROUND];
+		auto& tessVertexBuffer = m_tessVertexBuffers[GROUND];
 		vertexBuffer = VertexBuffer::MakeUnique();
-		N_RETURN(vertexBuffer->Create(m_device.get(), static_cast<uint32_t>(size(vertices)),
-			sizeof(Vertex), ResourceFlag::NONE, MemoryType::DEFAULT, 1, nullptr, 1, nullptr,
+		tessVertexBuffer = VertexBuffer::MakeUnique();
+		auto numVert = static_cast<uint32_t>(size(vertices));
+		N_RETURN(vertexBuffer->Create(m_device.get(), numVert, sizeof(Vertex), 
+			ResourceFlag::NONE, MemoryType::DEFAULT, 1, nullptr, 1, nullptr,
 			1, nullptr, MemoryFlag::NONE, L"GroundVB"), false);
-		uploaders.push_back(Resource::MakeUnique());
+		N_RETURN(tessVertexBuffer->Create(m_device.get(), numVert * TessVertexFactor, sizeof(Vertex),
+			ResourceFlag::NONE, MemoryType::DEFAULT, 1, nullptr, 1, nullptr,
+			1, nullptr, MemoryFlag::NONE, L"TessGroundVB"), false);
 
+		uploaders.push_back(Resource::MakeUnique());
 		N_RETURN(vertexBuffer->Upload(pCommandList, uploaders.back().get(), vertices,
 			sizeof(vertices), 0, ResourceState::NON_PIXEL_SHADER_RESOURCE), false);
 	}
@@ -457,15 +461,21 @@ bool PRayTracer::createGroundMesh(
 			23,20,22
 		};
 
-		m_numIndices[GROUND] = static_cast<uint32_t>(size(indices));
+		auto numIndices = static_cast<uint32_t>(size(indices));
+		m_numIndices[GROUND] = numIndices;
+		m_tessNumIndices[GROUND] = numIndices * TessIndiceFactor;
 
-		auto& indexBuffers = m_indexBuffers[GROUND];
-		indexBuffers = IndexBuffer::MakeUnique();
-		N_RETURN(indexBuffers->Create(m_device.get(), sizeof(indices), Format::R32_UINT, ResourceFlag::NONE,
+		auto& indexBuffer = m_indexBuffers[GROUND];
+		auto& tessIndexBuffer = m_tessIndexBuffers[GROUND];
+		indexBuffer = IndexBuffer::MakeUnique();
+		tessIndexBuffer = IndexBuffer::MakeUnique();
+		N_RETURN(indexBuffer->Create(m_device.get(), sizeof(indices), Format::R32_UINT, ResourceFlag::NONE,
 			MemoryType::DEFAULT, 1, nullptr, 1, nullptr, 1, nullptr, MemoryFlag::NONE, L"GroundIB"), false);
+		N_RETURN(tessIndexBuffer->Create(m_device.get(), sizeof(indices) * TessIndiceFactor, Format::R32_UINT, 
+			ResourceFlag::NONE, MemoryType::DEFAULT, 1, nullptr, 1, nullptr, 1, nullptr, MemoryFlag::NONE, L"TessGroundIB"), false);
+		
 		uploaders.push_back(Resource::MakeUnique());
-
-		N_RETURN(indexBuffers->Upload(pCommandList, uploaders.back().get(), indices,
+		N_RETURN(indexBuffer->Upload(pCommandList, uploaders.back().get(), indices,
 			sizeof(indices), 0, ResourceState::NON_PIXEL_SHADER_RESOURCE), false);
 	}
 
@@ -548,13 +558,25 @@ bool PRayTracer::createPipelines(Format rtFormat, Format dsFormat)
 
 	// Z prepass
 	{
-		N_RETURN(m_shaderPool->CreateShader(Shader::Stage::VS, vsIndex, L"VSDepth.cso"), false);
+		// N_RETURN(m_shaderPool->CreateShader(Shader::Stage::VS, vsIndex, L"VSDepth.cso"), false);
+		N_RETURN(m_shaderPool->CreateShader(Shader::Stage::VS, vsIndex, L"VSBasePassNew.cso"), false);
+#ifdef USE_COMPLEX_TESSELLATOR
+		N_RETURN(m_shaderPool->CreateShader(Shader::Stage::HS, hsIndex, L"HullShader.cso"), false);
+		N_RETURN(m_shaderPool->CreateShader(Shader::Stage::DS, dsIndex, L"DomainShader.cso"), false);
+#else
+		N_RETURN(m_shaderPool->CreateShader(Shader::Stage::HS, hsIndex, L"HSSimple.cso"), false);
+		N_RETURN(m_shaderPool->CreateShader(Shader::Stage::DS, dsIndex, L"DSSimple.cso"), false);
+#endif
+		N_RETURN(m_shaderPool->CreateShader(Shader::Stage::PS, psIndex, L"PSDepth.cso"), false);
 
 		const auto state = Graphics::State::MakeUnique();
 		state->SetPipelineLayout(m_pipelineLayouts[Z_PREPASS_LAYOUT]);
 		state->SetShader(Shader::Stage::VS, m_shaderPool->GetShader(Shader::Stage::VS, vsIndex++));
+		state->SetShader(Shader::Stage::HS, m_shaderPool->GetShader(Shader::Stage::HS, hsIndex++));
+		state->SetShader(Shader::Stage::DS, m_shaderPool->GetShader(Shader::Stage::DS, dsIndex++));
+		state->SetShader(Shader::Stage::PS, m_shaderPool->GetShader(Shader::Stage::PS, psIndex++));
 		state->IASetInputLayout(m_pInputLayout);
-		state->IASetPrimitiveTopologyType(PrimitiveTopologyType::TRIANGLE);
+		state->IASetPrimitiveTopologyType(PrimitiveTopologyType::PATCH);
 		state->OMSetDSVFormat(dsFormat);
 		X_RETURN(m_pipelines[Z_PREPASS], state->GetPipeline(m_graphicsPipelineCache.get(), L"ZPrepass"), false);
 	}
@@ -562,18 +584,23 @@ bool PRayTracer::createPipelines(Format rtFormat, Format dsFormat)
 	// G-buffer pass
 	{
 		N_RETURN(m_shaderPool->CreateShader(Shader::Stage::VS, vsIndex, L"VSBasePassNew.cso"), false);
-		// N_RETURN(m_shaderPool->CreateShader(Shader::Stage::HS, hsIndex, L"HullShader.cso"), false);
-		// N_RETURN(m_shaderPool->CreateShader(Shader::Stage::DS, dsIndex, L"DomainShader.cso"), false);
+#ifdef USE_COMPLEX_TESSELLATOR
+		N_RETURN(m_shaderPool->CreateShader(Shader::Stage::HS, hsIndex, L"HullShader.cso"), false);
+		N_RETURN(m_shaderPool->CreateShader(Shader::Stage::DS, dsIndex, L"DomainShader.cso"), false);
+#else
+		N_RETURN(m_shaderPool->CreateShader(Shader::Stage::HS, hsIndex, L"HSSimple.cso"), false);
+		N_RETURN(m_shaderPool->CreateShader(Shader::Stage::DS, dsIndex, L"DSSimple.cso"), false);
+#endif
 		N_RETURN(m_shaderPool->CreateShader(Shader::Stage::PS, psIndex, L"PSGBufferNew.cso"), false);
 
 		const auto state = Graphics::State::MakeUnique();
 		state->IASetInputLayout(m_pInputLayout);
 		state->SetPipelineLayout(m_pipelineLayouts[GBUFFER_PASS_LAYOUT]);
 		state->SetShader(Shader::Stage::VS, m_shaderPool->GetShader(Shader::Stage::VS, vsIndex++));
-		// state->SetShader(Shader::Stage::HS, m_shaderPool->GetShader(Shader::Stage::HS, hsIndex++));
-		// state->SetShader(Shader::Stage::DS, m_shaderPool->GetShader(Shader::Stage::DS, dsIndex++));
+		state->SetShader(Shader::Stage::HS, m_shaderPool->GetShader(Shader::Stage::HS, hsIndex++));
+		state->SetShader(Shader::Stage::DS, m_shaderPool->GetShader(Shader::Stage::DS, dsIndex++));
 		state->SetShader(Shader::Stage::PS, m_shaderPool->GetShader(Shader::Stage::PS, psIndex++));
-		state->IASetPrimitiveTopologyType(PrimitiveTopologyType::TRIANGLE);
+		state->IASetPrimitiveTopologyType(PrimitiveTopologyType::PATCH);
 		state->DSSetState(Graphics::DEPTH_READ_EQUAL, m_graphicsPipelineCache.get());
 		state->OMSetNumRenderTargets(4);
 		state->OMSetRTVFormat(0, Format::R8G8B8A8_UNORM);
@@ -733,9 +760,9 @@ bool PRayTracer::buildAccelerationStructures(const RayTracing::CommandList* pCom
 	};
 	for (auto& instances : m_instances) instances = Resource::MakeUnique();
 	auto& instances = m_instances[FrameCount - 1];
-	const BottomLevelAS* ppBottomLevelASs[NUM_MESH];
-	for (auto i = 0u; i < NUM_MESH; ++i) ppBottomLevelASs[i] = m_bottomLevelASs[i].get();
-	TopLevelAS::SetInstances(m_device.get(), instances.get(), NUM_MESH, ppBottomLevelASs, transforms);
+	const BottomLevelAS* pBottomLevelASs[NUM_MESH];
+	for (auto i = 0u; i < NUM_MESH; ++i) pBottomLevelASs[i] = m_bottomLevelASs[i].get();
+	TopLevelAS::SetInstances(m_device.get(), instances.get(), NUM_MESH, pBottomLevelASs, transforms);
 
 	// Build bottom level ASs
 	for (auto& bottomLevelAS : m_bottomLevelASs)
@@ -802,7 +829,12 @@ void PRayTracer::zPrepass(const XUSG::CommandList* pCommandList, uint8_t frameIn
 	pCommandList->RSSetScissorRects(1, &scissorRect);
 
 	// Record commands.
-	pCommandList->IASetPrimitiveTopology(PrimitiveTopology::TRIANGLELIST);
+	// pCommandList->IASetPrimitiveTopology(PrimitiveTopology::TRIANGLELIST);
+#ifdef USE_COMPLEX_TESSELLATOR
+	pCommandList->IASetPrimitiveTopology(PrimitiveTopology::CONTROL_POINT13_PATCHLIST);
+#else
+	pCommandList->IASetPrimitiveTopology(PrimitiveTopology::CONTROL_POINT3_PATCHLIST);
+#endif
 
 	for (auto i = 0u; i < NUM_MESH; ++i)
 	{
@@ -846,7 +878,12 @@ void PRayTracer::gbufferPass(const XUSG::CommandList* pCommandList, uint8_t fram
 	pCommandList->RSSetViewports(1, &viewport);
 	pCommandList->RSSetScissorRects(1, &scissorRect);
 
-	pCommandList->IASetPrimitiveTopology(PrimitiveTopology::TRIANGLELIST);
+	// pCommandList->IASetPrimitiveTopology(PrimitiveTopology::TRIANGLELIST);
+#ifdef USE_COMPLEX_TESSELLATOR
+	pCommandList->IASetPrimitiveTopology(PrimitiveTopology::CONTROL_POINT13_PATCHLIST);
+#else
+	pCommandList->IASetPrimitiveTopology(PrimitiveTopology::CONTROL_POINT3_PATCHLIST);
+#endif
 
 	for (auto i = 0u; i < NUM_MESH; ++i)
 	{

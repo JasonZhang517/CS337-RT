@@ -3,20 +3,15 @@
 //--------------------------------------------------------------------------------------
 
 #include "BRDFModels.hlsli"
-#include "Material.hlsli"
+#include "MaterialNew.hlsli"
 
 #define MAX_RECURSION_DEPTH	1
 
 typedef RaytracingAccelerationStructure RaytracingAS;
 typedef BuiltInTriangleIntersectionAttributes TriAttributes;
 
-enum HitGroup
-{
-	HIT_GROUP_REFLECTION,
-	HIT_GROUP_DIFFUSE,
-	 
-	NUM_HIT_GROUP
-};
+#define HIT_GROUP_REFLECTION 0
+#define HIT_GROUP_DIFFUSE 1
 
 //--------------------------------------------------------------------------------------
 // Structs
@@ -54,7 +49,6 @@ ConstantBuffer<RayGenConstants> l_rayGen	: register (b2);
 //--------------------------------------------------------------------------------------
 // Texture and buffers
 //--------------------------------------------------------------------------------------
-//RWTexture2D<float3>			g_renderTargets[NUM_HIT_GROUP] : register (u0);
 RWTexture2D<float3>			g_renderTarget  : register (u0);
 RaytracingAS				g_scene			: register (t0);
 Texture2D					g_txBaseColor	: register (t1);
@@ -439,9 +433,9 @@ void closestHitReflection(inout RayPayload payload, TriAttributes attr)
 	const float3 P = hitWorldPosition();
 
 	const float2 uv = input.Pos.xz * 0.5 + 0.5;
-	const float2 rghMtl = getRoughMetal(instanceIdx, uv);
+	const float2 rghMtl = getRoughMetal(instanceIdx);
 	const uint hitGroup = rghMtl.y > 0.5 ? HIT_GROUP_REFLECTION : HIT_GROUP_DIFFUSE;
-	const float4 color = getBaseColor(instanceIdx, uv);
+	const float4 color = getBaseColor(instanceIdx);
 
 	// Trace a reflection ray.
 	payload = computeLighting(true, rghMtl, N, V, P, color, hitGroup, 1);
@@ -458,9 +452,9 @@ void closestHitDiffuse(inout RayPayload payload, TriAttributes attr)
 	const float3 P = hitWorldPosition();
 
 	const float2 uv = input.Pos.xz * 0.5 + 0.5;
-	const float2 rghMtl = getRoughMetal(instanceIdx, uv);
+	const float2 rghMtl = getRoughMetal(instanceIdx);
 	const uint hitGroup = rghMtl.y > 0.5 ? HIT_GROUP_REFLECTION : HIT_GROUP_DIFFUSE;
-	float4 color = getBaseColor(instanceIdx, uv);
+	float4 color = getBaseColor(instanceIdx);
 	color.xyz *= hitGroup ? 1.0 - rghMtl.y : 1.0;
 
 	// Trace a diffuse ray.

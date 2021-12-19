@@ -34,6 +34,8 @@ public:
 	const XUSG::Texture2D* GetRayTracingOutput() const;
 
 	static const uint8_t FrameCount = 3;
+	static const uint8_t TessVertexFactor = 10; // Upper Bound
+	static const uint8_t TessIndiceFactor = 10; // Correct
 private:
 	enum PipelineLayoutIndex : uint8_t
 	{
@@ -116,6 +118,7 @@ private:
 	XUSG::RayTracing::Device::sptr m_device;
 
 	uint32_t			m_numIndices[NUM_MESH];
+	uint32_t			m_tessNumIndices[NUM_MESH];
 
 	DirectX::XMUINT2	m_viewport;
 	DirectX::XMFLOAT4	m_posScale;
@@ -136,8 +139,9 @@ private:
 
 	XUSG::VertexBuffer::uptr	m_vertexBuffers[NUM_MESH];
 	XUSG::IndexBuffer::uptr		m_indexBuffers[NUM_MESH];
+	XUSG::VertexBuffer::uptr	m_tessVertexBuffers[NUM_MESH];
+	XUSG::IndexBuffer::uptr		m_tessIndexBuffers[NUM_MESH];
 
-	/*XUSG::Texture2D::uptr		m_outputViews[NUM_HIT_GROUP];*/
 	XUSG::Texture2D::uptr		m_outputView;
 	XUSG::RenderTarget::uptr	m_gbuffers[NUM_GBUFFER];
 	XUSG::DepthStencil::sptr	m_depth;
