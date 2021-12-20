@@ -42,7 +42,6 @@ cbuffer cbPerObjectInstance
 //--------------------------------------------------------------------------------------
 PSOut main(PSIn input)
 {
-    
     PSOut output;
 
     output.BaseColor = getBaseColor(g_instanceIdx);

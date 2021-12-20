@@ -3,73 +3,68 @@
 //--------------------------------------------------------------------------------------
 
 #include "BRDFModels.hlsli"
-#include "Material.hlsli"
+#include "MaterialNew.hlsli"
 
 #define MAX_RECURSION_DEPTH	1
 
 typedef RaytracingAccelerationStructure RaytracingAS;
 typedef BuiltInTriangleIntersectionAttributes TriAttributes;
 
-enum HitGroup
-{
-    HIT_GROUP_REFLECTION,
-    HIT_GROUP_DIFFUSE,
-
-    NUM_HIT_GROUP
-};
+#define HIT_GROUP_REFLECTION 0
+#define HIT_GROUP_DIFFUSE 1
 
 //--------------------------------------------------------------------------------------
 // Structs
 //--------------------------------------------------------------------------------------
 struct Vertex
 {
-    float3	Pos;
-    float3	Nrm;
+    float3 Pos;
+    float3 Nrm;
 };
 
 struct RayPayload
 {
-    float3	Color;
-    uint	RecursionDepth;
+    float3 Color;
+    uint RecursionDepth;
 };
 
 struct GlobalConstants
 {
     float3x3 WorldITs[2];
-    uint	FrameIndex;
+    uint FrameIndex;
 };
 
 struct RayGenConstants
 {
-    matrix	ProjToWorld;
-    float3	EyePt;
+    matrix ProjToWorld;
+    float3 EyePt;
 };
 
 //--------------------------------------------------------------------------------------
 // Constant buffers
 //--------------------------------------------------------------------------------------
-ConstantBuffer<GlobalConstants> g_cb		: register (b1);
-ConstantBuffer<RayGenConstants> l_rayGen	: register (b2);
+ConstantBuffer<GlobalConstants> g_cb : register(b1);
+ConstantBuffer<RayGenConstants> l_rayGen : register(b2);
 
 //--------------------------------------------------------------------------------------
 // Texture and buffers
 //--------------------------------------------------------------------------------------
-RWTexture2D<float3>			g_renderTargets[NUM_HIT_GROUP] : register (u0);
-RaytracingAS				g_scene			: register (t0);
-Texture2D					g_txBaseColor	: register (t1);
-Texture2D					g_txNormal		: register (t2);
-Texture2D<float2>			g_txRoughMetal	: register (t3);
-Texture2D<float>			g_txDepth		: register (t4);
-TextureCube<float3>			g_txEnv			: register (t5);
+RWTexture2D<float3> g_renderTarget : register(u0);
+RaytracingAS g_scene : register(t0);
+Texture2D g_txBaseColor : register(t1);
+Texture2D g_txNormal : register(t2);
+Texture2D<float2> g_txRoughMetal : register(t3);
+Texture2D<float> g_txDepth : register(t4);
+TextureCube<float3> g_txEnv : register(t5);
 
 // IA buffers
-Buffer<uint>				g_indexBuffers[]	: register (t0, space1);
-StructuredBuffer<Vertex>	g_vertexBuffers[]	: register (t0, space2);
+Buffer<uint> g_indexBuffers[] : register(t0, space1);
+StructuredBuffer<Vertex> g_vertexBuffers[] : register(t0, space2);
 
 //--------------------------------------------------------------------------------------
 // Samplers
 //--------------------------------------------------------------------------------------
-SamplerState g_sampler : register (s0);
+SamplerState g_sampler : register(s0);
 
 static const uint g_waveXSize = 8;
 
@@ -142,6 +137,7 @@ float3 computeDirectionGGX(float a, float3 normal, float2 xi)
     const float3x3 tanSpace = computeLocalToWorld(normal);
 
     return tanSpace[0] * localDir.x + tanSpace[1] * localDir.y + tanSpace[2] * localDir.z;
+    return tanSpace[0] * localDir.x + tanSpace[1] * localDir.y + tanSpace[2] * localDir.z;
 }
 
 // Compute local direction first and transform it to world space
@@ -167,7 +163,7 @@ float3 environment(float3 dir, float3 ddx = 0.0, float3 ddy = 0.0)
 {
 #if 1
     return ((abs(ddx) + abs(ddy) > 0.0 ? g_txEnv.SampleGrad(g_sampler, dir, ddx, ddy) :
-        g_txEnv.SampleLevel(g_sampler, dir, 0.0)));// *1.5;
+        g_txEnv.SampleLevel(g_sampler, dir, 0.0))); // *1.5;
 #else
     const float3 sunDir = normalize(float3(-1.0, 1.0, -1.0));
     const float sumAmt = saturate(dot(dir, sunDir));
@@ -285,42 +281,6 @@ float3 hitWorldPosition()
     return WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
 }
 
-// Quasirandom low-discrepancy sequences
-uint Hammersley(uint i)
-{
-    uint bits = i;
-    bits = (bits << 16) | (bits >> 16);
-    bits = ((bits & 0x55555555) << 1) | ((bits & 0xAAAAAAAA) >> 1);
-    bits = ((bits & 0x33333333) << 2) | ((bits & 0xCCCCCCCC) >> 2);
-    bits = ((bits & 0x0F0F0F0F) << 4) | ((bits & 0xF0F0F0F0) >> 4);
-    bits = ((bits & 0x00FF00FF) << 8) | ((bits & 0xFF00FF00) >> 8);
-
-    return bits;
-}
-
-float2 Hammersley(uint i, uint num)
-{
-    return float2(i / float(num), Hammersley(i) / float(0x10000));
-}
-
-// Morton order generator
-uint MortonCode(uint x)
-{
-    //x &= 0x0000ffff;
-    x = (x ^ (x << 8)) & 0x00ff00ff;
-    x = (x ^ (x << 4)) & 0x0f0f0f0f;
-    x = (x ^ (x << 2)) & 0x33333333;
-    x = (x ^ (x << 1)) & 0x55555555;
-
-    return x;
-}
-
-uint MortonIndex(uint2 pos)
-{
-    // Interleaved combination
-    return MortonCode(pos.x) | (MortonCode(pos.y) << 1);
-}
-
 uint RNG(uint seed)
 {
     // Condensed version of pcg_output_rxs_m_xs_32_32
@@ -339,7 +299,6 @@ float2 RNG(uint i, uint num)
 float2 getSampleParam(uint2 index, uint2 dim, uint numSamples = 256)
 {
     uint s = index.y * dim.x + index.x;
-    //uint s = MortonIndex(index);
 
     s = RNG(s);
     s += g_cb.FrameIndex;
@@ -347,7 +306,6 @@ float2 getSampleParam(uint2 index, uint2 dim, uint numSamples = 256)
     s %= numSamples;
 
     return RNG(s, numSamples);
-    //return Hammersley(s, numSamples);
 }
 
 RayPayload computeLighting(bool hit, float2 rghMtl, float3 N, float3 V, float3 P, float4 color, uint hitGroup, uint recursionDepth = 0)
@@ -387,14 +345,17 @@ RayPayload computeLighting(bool hit, float2 rghMtl, float3 N, float3 V, float3 P
             NoL = rghMtl.y < 1.0 ? 1.0 : 0.0;
         }
     }
-    else ray.Direction = -V;
+    else
+        ray.Direction = -V;
 
     const float3 dLdx = dFdx(ray.Direction);
     const float3 dLdy = dFdy(ray.Direction);
     RayPayload payload = traceRadianceRay(ray, recursionDepth, hitGroup, dLdx, dLdy);
 
-    if (!hit && hitGroup == HIT_GROUP_REFLECTION) return payload;
-    else if (NoL <= 0.0 || (!hit && hitGroup == HIT_GROUP_DIFFUSE)) return (RayPayload)0;
+    if (!hit && hitGroup == HIT_GROUP_REFLECTION)
+        return payload;
+    else if (NoL <= 0.0 || (!hit && hitGroup == HIT_GROUP_DIFFUSE))
+        return (RayPayload) 0;
 
     if (hitGroup == HIT_GROUP_REFLECTION)
     {
@@ -449,13 +410,16 @@ void raygenMain()
     const float2 rghMtl = hit ? g_txRoughMetal[index] : 0.0;
 
     RayPayload payload = computeLighting(hit, rghMtl, N, V, P, color, HIT_GROUP_REFLECTION);
-    g_renderTargets[HIT_GROUP_REFLECTION][index] = payload.Color;	// Write the raytraced color to the output texture.
+    float3 resultColor = payload.Color;
+    // g_renderTargets[HIT_GROUP_REFLECTION][index] = payload.Color;	// Write the raytraced color to the output texture.
 
     if (rghMtl.y < 1.0)
     {
         payload = computeLighting(hit, rghMtl, N, V, P, color, HIT_GROUP_DIFFUSE);
-        g_renderTargets[HIT_GROUP_DIFFUSE][index] = payload.Color;	// Write the raytraced color to the output texture.
+        // g_renderTargets[HIT_GROUP_DIFFUSE][index] = payload.Color;	// Write the raytraced color to the output texture.
+        resultColor += payload.Color;
     }
+    g_renderTarget[index] = resultColor;
 }
 
 //--------------------------------------------------------------------------------------
@@ -472,9 +436,9 @@ void closestHitReflection(inout RayPayload payload, TriAttributes attr)
     const float3 P = hitWorldPosition();
 
     const float2 uv = input.Pos.xz * 0.5 + 0.5;
-    const float2 rghMtl = getRoughMetal(instanceIdx, uv);
+    const float2 rghMtl = getRoughMetal(instanceIdx);
     const uint hitGroup = rghMtl.y > 0.5 ? HIT_GROUP_REFLECTION : HIT_GROUP_DIFFUSE;
-    const float4 color = getBaseColor(instanceIdx, uv);
+    const float4 color = getBaseColor(instanceIdx);
 
     // Trace a reflection ray.
     payload = computeLighting(true, rghMtl, N, V, P, color, hitGroup, 1);
@@ -491,9 +455,9 @@ void closestHitDiffuse(inout RayPayload payload, TriAttributes attr)
     const float3 P = hitWorldPosition();
 
     const float2 uv = input.Pos.xz * 0.5 + 0.5;
-    const float2 rghMtl = getRoughMetal(instanceIdx, uv);
+    const float2 rghMtl = getRoughMetal(instanceIdx);
     const uint hitGroup = rghMtl.y > 0.5 ? HIT_GROUP_REFLECTION : HIT_GROUP_DIFFUSE;
-    float4 color = getBaseColor(instanceIdx, uv);
+    float4 color = getBaseColor(instanceIdx);
     color.xyz *= hitGroup ? 1.0 - rghMtl.y : 1.0;
 
     // Trace a diffuse ray.

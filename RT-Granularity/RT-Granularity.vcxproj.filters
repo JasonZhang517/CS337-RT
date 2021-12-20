@@ -166,6 +166,9 @@
     <None Include="Content\Shaders\MaterialNew.hlsli">
       <Filter>Shaders\Renderer</Filter>
     </None>
+    <None Include="Content\Shaders\PMaterial.hlsli">
+      <Filter>Shaders\Renderer</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="Content\Shaders\RayTracing.hlsl">

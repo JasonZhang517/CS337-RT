@@ -555,7 +555,7 @@ bool VRayTracer::createPipelines(
     N_RETURN(m_shaderPool->CreateShader(Shader::Stage::PS, ShaderIndex::PS_DEPTH, L"PSDepth.cso"), false);
     N_RETURN(m_shaderPool->CreateShader(Shader::Stage::PS, ShaderIndex::PS_GBUFFER, L"PSGBufferNew.cso"), false);
 
-    N_RETURN(m_shaderPool->CreateShader(Shader::Stage::CS, ShaderIndex::CS, L"PRayTracing.cso"), false);
+    N_RETURN(m_shaderPool->CreateShader(Shader::Stage::CS, ShaderIndex::CS, L"RayTracing.cso"), false);
 
     // Z prepass
     {

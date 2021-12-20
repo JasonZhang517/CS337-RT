@@ -12,8 +12,8 @@ struct HSControlOut
 
 struct HSConstOut
 {
-    float EdgeTessFactor[3]			: SV_TessFactor;
-    float InsideTessFactor			: SV_InsideTessFactor;
+    float EdgeTessFactor[3]     : SV_TessFactor;
+    float InsideTessFactor      : SV_InsideTessFactor;
 };
 
 #define NUM_CONTROL_POINTS 3

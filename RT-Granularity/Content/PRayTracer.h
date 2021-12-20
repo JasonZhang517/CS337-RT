@@ -36,18 +36,15 @@ public:
 private:
     enum PipelineLayoutIndex : uint8_t
     {
-        Z_PREPASS_LAYOUT,
-        GBUFFER_PASS_LAYOUT,
         RT_GLOBAL_LAYOUT,
         RAY_GEN_LAYOUT,
+        HIT_RADIANCE_LAYOUT,
 
         NUM_PIPELINE_LAYOUT
     };
 
     enum PipelineIndex : uint8_t
     {
-        Z_PREPASS,
-        GBUFFER_PASS,
         RAY_TRACING,
 
         NUM_PIPELINE
@@ -56,24 +53,13 @@ private:
     enum GlobalPipelineLayoutSlot : uint8_t
     {
         OUTPUT_VIEW,
-        SHADER_RESOURCES,
-        ACCELERATION_STRUCTURE = SHADER_RESOURCES,
+        ACCELERATION_STRUCTURE,
         SAMPLER,
         INDEX_BUFFERS,
         VERTEX_BUFFERS,
         MATERIALS,
         CONSTANTS,
         G_BUFFERS
-    };
-
-    enum GBuffer : uint8_t
-    {
-        BASE_COLOR,
-        NORMAL,
-        ROUGH_METAL,
-        VELOCITY,
-
-        NUM_GBUFFER
     };
 
     enum SRVTable : uint8_t
@@ -87,19 +73,14 @@ private:
 
     enum HitGroup : uint8_t
     {
-        HIT_GROUP_REFLECTION,
-        HIT_GROUP_DIFFUSE,
+        HIT_GROUP_RADIANCE,
+        HIT_GROUP_SHADOW,
 
         NUM_HIT_GROUP
     };
 
     enum ShaderIndex : uint8_t
     {
-        VS,
-        HS,
-        DS,
-        PS_GBUFFER,
-        PS_DEPTH,
         CS,
 
         NUM_SHADER
@@ -113,15 +94,12 @@ private:
         std::vector<XUSG::Resource::uptr>& uploaders);
     bool createInputLayout();
     bool createPipelineLayouts();
-    bool createPipelines(XUSG::Format rtFormat, XUSG::Format dsFormat);
+    bool createPipelines(XUSG::Format rtFormat);
     bool createDescriptorTables();
     bool buildAccelerationStructures(const XUSG::RayTracing::CommandList* pCommandList,
         XUSG::RayTracing::GeometryBuffer* pGeometries);
     bool buildShaderTables();
 
-    void zPrepass(const XUSG::CommandList* pCommandList, uint8_t frameIndex);
-    void gbufferPass(const XUSG::CommandList* pCommandList, uint8_t frameIndex, bool depthClear = false);
-    void renderGeometry(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex);
     void rayTrace(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex);
 
     XUSG::RayTracing::Device::sptr m_device;
@@ -131,10 +109,9 @@ private:
     DirectX::XMUINT2    m_viewport;
     DirectX::XMFLOAT4   m_posScale;
     DirectX::XMFLOAT4X4 m_worlds[NUM_MESH];
-    DirectX::XMFLOAT4X4 m_worldViewProjs[NUM_MESH];
 
     XUSG::RayTracing::BottomLevelAS::uptr m_bottomLevelASs[NUM_MESH];
-    XUSG::RayTracing::TopLevelAS::uptr m_topLevelAS;
+    XUSG::RayTracing::TopLevelAS::uptr    m_topLevelAS;
 
     const XUSG::InputLayout*    m_pInputLayout;
     XUSG::PipelineLayout        m_pipelineLayouts[NUM_PIPELINE_LAYOUT];
@@ -149,10 +126,7 @@ private:
     XUSG::IndexBuffer::uptr     m_indexBuffers[NUM_MESH];
 
     XUSG::Texture2D::uptr       m_outputView;
-    XUSG::RenderTarget::uptr    m_gbuffers[NUM_GBUFFER];
-    XUSG::DepthStencil::sptr    m_depth;
 
-    XUSG::ConstantBuffer::uptr  m_cbBasePass[NUM_MESH];
     XUSG::ConstantBuffer::uptr  m_cbMaterials;
     XUSG::ConstantBuffer::uptr  m_cbRaytracing;
 
@@ -165,10 +139,10 @@ private:
     static const wchar_t* HitGroupNames[NUM_HIT_GROUP];
     static const wchar_t* RaygenShaderName;
     static const wchar_t* ClosestHitShaderNames[NUM_HIT_GROUP];
-    static const wchar_t* MissShaderName;
-    XUSG::RayTracing::ShaderTable::uptr m_missShaderTable;
-    XUSG::RayTracing::ShaderTable::uptr m_hitGroupShaderTable;
-    XUSG::RayTracing::ShaderTable::uptr m_rayGenShaderTables[FrameCount];
+    static const wchar_t* MissShaderNames[NUM_HIT_GROUP];
+    XUSG::RayTracing::ShaderTable::uptr     m_missShaderTable;
+    XUSG::RayTracing::ShaderTable::uptr     m_hitGroupShaderTable;
+    XUSG::RayTracing::ShaderTable::uptr     m_rayGenShaderTables[FrameCount];
 
     XUSG::ShaderPool::uptr                  m_shaderPool;
     XUSG::RayTracing::PipelineCache::uptr   m_rayTracingPipelineCache;
