@@ -31,9 +31,8 @@ protected:
     XUSG::Pipeline				m_pipeline;
 
     XUSG::DescriptorTable		m_srvTable;
-    XUSG::DescriptorTable		m_samplerTable;
 
-    const XUSG::Texture2D* m_inputView;
+    const XUSG::Texture2D*              m_inputView;
 
     XUSG::ShaderPool::uptr				m_shaderPool;
     XUSG::Graphics::PipelineCache::uptr	m_graphicsPipelineCache;

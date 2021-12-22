@@ -1,4 +1,4 @@
-#include "PMaterial.hlsli"
+#include "VMaterial.hlsli"
 
 typedef RaytracingAccelerationStructure       RaytracingAS;
 typedef BuiltInTriangleIntersectionAttributes TriAttributes;
@@ -33,8 +33,15 @@ struct ShadowPayload
 cbuffer cbGlobalConstants : register(b1)
 {
     float3x3 g_worldITs[NUM_MESH];
+    float4x4 g_worlds[NUM_MESH];
 };
-cbuffer cbRayGenConstants : register(b2)
+
+cbuffer cbInstanceIdx : register(b2)
+{
+    uint g_instanceIdx;
+};
+
+cbuffer cbRayGenConstants : register(b3)
 {
     matrix   l_projToWorld;
     float3   l_eyePt;
@@ -43,13 +50,13 @@ cbuffer cbRayGenConstants : register(b2)
 //--------------------------------------------------------------------------------------
 // Texture and buffers
 //--------------------------------------------------------------------------------------
-RWTexture2D<float3>      g_outputView      : register(u0);
-RaytracingAS             g_scene           : register(t0);
-TextureCube<float3>      g_txEnv           : register(t1);
+RWStructuredBuffer<float3>  g_vertexColors[]  : register(u0);
+RaytracingAS                g_scene           : register(t0);
+TextureCube<float3>         g_txEnv           : register(t1);
 
 // IA buffers
-Buffer<uint>             g_indexBuffers[]  : register(t0, space1);
-StructuredBuffer<Vertex> g_vertexBuffers[] : register(t0, space2);
+Buffer<uint>                g_indexBuffers[]  : register(t0, space1);
+StructuredBuffer<Vertex>    g_vertexBuffers[] : register(t0, space2);
 
 //--------------------------------------------------------------------------------------
 // Samplers
@@ -218,19 +225,17 @@ bool traceShadowRay(
 [shader("raygeneration")]
 void raygenMain()
 {
-    uint2 index = DispatchRaysIndex().xy;
-
-    float3 rayOrigin = l_eyePt;
+    uint vertexIdx = DispatchRaysIndex().x;
     
-    float2 screenPos = (index + 0.5) / DispatchRaysDimensions().xy * 2.0 - 1.0;
-    screenPos.y = -screenPos.y; // Invert Y for Y-up-style NDC.
-    float4 world = mul(float4(screenPos, 0.0, 1.0), l_projToWorld);
-    float3 hitPos = world.xyz / world.w;
+    float3 rayOrigin = l_eyePt;
+    float3 hitObjPos = g_vertexBuffers[g_instanceIdx][vertexIdx].Pos;
+    float4 hitPos4 = mul(float4(hitObjPos, 1.0), g_worlds[g_instanceIdx]);
+    float3 hitPos = hitPos4.xyz / hitPos4.w;
     float3 rayDirection = normalize(hitPos - l_eyePt);
     
     float3 color = traceRadianceRay(rayOrigin, rayDirection, 0);
-
-    g_outputView[index] = color;
+    
+    g_vertexColors[g_instanceIdx][vertexIdx] = color;
 }
 
 [shader("closesthit")]
@@ -268,7 +273,6 @@ void missRadiance(
     inout RayPayload payload)
 {
     payload.Color = environment(WorldRayDirection());
-    // payload.Color = float3(0.68, 0.85, 0.90);
 }
 
 [shader("miss")]

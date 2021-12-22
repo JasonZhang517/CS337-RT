@@ -171,15 +171,6 @@ void RTGranularity::LoadAssets()
             m_envFileName.c_str(), Format::R8G8B8A8_UNORM, m_meshPosScale)) ThrowIfFailed(E_FAIL);
     }
 
-    // Create denoiser
-    {
-        m_postProcessor = make_unique<PostProcessor>(m_device);
-        if (!m_postProcessor) ThrowIfFailed(E_FAIL);
-        if (!m_postProcessor->Init(pCommandList, m_width, m_height, Format::R8G8B8A8_UNORM,
-            m_rayTracer->GetRayTracingOutput()))
-            ThrowIfFailed(E_FAIL);
-    }
-
     // Close the command list and execute it to begin the initial GPU setup.
     N_RETURN(pCommandList->Close(), ThrowIfFailed(E_FAIL));
     m_commandQueues[UNIVERSAL]->ExecuteCommandList(pCommandList);
@@ -379,15 +370,14 @@ void RTGranularity::PopulateCommandList()
     const auto pCommandList = m_commandLists[UNIVERSAL].get();
     N_RETURN(pCommandList->Reset(commandAllocator, nullptr), ThrowIfFailed(E_FAIL));
 
-    // Record commands.
-    m_rayTracer->UpdateAccelerationStructures(pCommandList, m_frameIndex);
-    m_rayTracer->Render(pCommandList, m_frameIndex);
-
     ResourceBarrier barriers[3];
     auto numBarriers = 0u;
 
     numBarriers = m_renderTargets[m_frameIndex]->SetBarrier(barriers, ResourceState::RENDER_TARGET);
-    m_postProcessor->ToneMap(pCommandList, m_renderTargets[m_frameIndex]->GetRTV(), numBarriers, barriers);
+
+    // Record commands.
+    m_rayTracer->UpdateAccelerationStructures(pCommandList, m_frameIndex);
+    m_rayTracer->Render(pCommandList, m_frameIndex, m_renderTargets[m_frameIndex]->GetRTV(), numBarriers, barriers);
 
     // Indicate that the back buffer will now be used to present.
     numBarriers = m_renderTargets[m_frameIndex]->SetBarrier(barriers, ResourceState::PRESENT);

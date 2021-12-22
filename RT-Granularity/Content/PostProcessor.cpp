@@ -43,8 +43,7 @@ void PostProcessor::ToneMap(const CommandList* pCommandList, const Descriptor& r
     // Bind the heaps, acceleration structure and dispatch rays.
     const DescriptorPool descriptorPools[] =
     {
-        m_descriptorTableCache->GetDescriptorPool(CBV_SRV_UAV_POOL),
-        m_descriptorTableCache->GetDescriptorPool(SAMPLER_POOL)
+        m_descriptorTableCache->GetDescriptorPool(CBV_SRV_UAV_POOL)
     };
     pCommandList->SetDescriptorPools(static_cast<uint32_t>(size(descriptorPools)), descriptorPools);
 
@@ -111,14 +110,6 @@ bool PostProcessor::createDescriptorTables()
         const auto descriptorTable = Util::DescriptorTable::MakeUnique();
         descriptorTable->SetDescriptors(0, 1, &m_inputView->GetSRV());
         X_RETURN(m_srvTable, descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get()), false);
-    }
-
-    // Create the sampler
-    {
-        const auto descriptorTable = Util::DescriptorTable::MakeUnique();
-        const auto samplerLinearClamp = SamplerPreset::LINEAR_CLAMP;
-        descriptorTable->SetSamplers(0, 1, &samplerLinearClamp, m_descriptorTableCache.get());
-        X_RETURN(m_samplerTable, descriptorTable->GetSamplerTable(m_descriptorTableCache.get()), false);
     }
 
     return true;

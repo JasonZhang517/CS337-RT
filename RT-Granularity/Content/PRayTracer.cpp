@@ -29,9 +29,9 @@ struct RayGenConstants
 
 struct CBGlobal
 {
-    XMFLOAT3X4 WorldITs[PRayTracer::NUM_MESH - 1];
-    float      WorldIT[11];
-    uint32_t   FrameIndex;
+    XMFLOAT3X4 WorldITs[PRayTracer::NUM_MESH];
+    /*float      WorldIT[11];
+    uint32_t   FrameIndex;*/
 };
 
 struct CBMaterial
@@ -71,8 +71,7 @@ bool PRayTracer::Init(
     const char*              fileName,
     const wchar_t*           envFileName, 
     Format                   rtFormat, 
-    const XMFLOAT4&          posScale,
-    uint8_t                  maxGBufferMips)
+    const XMFLOAT4&          posScale)
 {
     m_viewport = XMUINT2(width, height);
     m_posScale = posScale;
@@ -224,7 +223,6 @@ void PRayTracer::UpdateFrame(
             const auto pCbData = reinterpret_cast<CBGlobal*>(m_cbRaytracing->Map(frameIndex));
             const auto n = 256u;
             for (auto i = 0u; i < NUM_MESH; ++i) XMStoreFloat3x4(&pCbData->WorldITs[i], i ? rot : XMMatrixIdentity());
-            pCbData->FrameIndex = s_frameIndex++;
             s_frameIndex %= n;
         }
 
@@ -244,7 +242,10 @@ void PRayTracer::UpdateFrame(
 
 void PRayTracer::Render(
     const RayTracing::CommandList* pCommandList, 
-    uint8_t                        frameIndex)
+    uint8_t                        frameIndex, 
+    const Descriptor&              rtv,
+    uint32_t                       numBarriers, 
+    ResourceBarrier*               pBarriers)
 {
     // Bind the heaps
     const DescriptorPool descriptorPools[] =
@@ -253,7 +254,8 @@ void PRayTracer::Render(
         m_descriptorTableCache->GetDescriptorPool(SAMPLER_POOL)
     };
     pCommandList->SetDescriptorPools(static_cast<uint32_t>(size(descriptorPools)), descriptorPools);
-    rayTrace(pCommandList, frameIndex);
+    raytrace(pCommandList, frameIndex);
+    toneMap(pCommandList, rtv, numBarriers, pBarriers);
 }
 
 void PRayTracer::UpdateAccelerationStructures(
@@ -273,11 +275,6 @@ void PRayTracer::UpdateAccelerationStructures(
     // Update top level AS
     const auto& descriptorPool = m_descriptorTableCache->GetDescriptorPool(CBV_SRV_UAV_POOL);
     m_topLevelAS->Build(pCommandList, m_scratch.get(), m_instances[frameIndex].get(), descriptorPool, true);
-}
-
-const Texture2D* PRayTracer::GetRayTracingOutput() const
-{
-    return m_outputView.get();
 }
 
 bool PRayTracer::createVB(
@@ -321,41 +318,40 @@ bool PRayTracer::createGroundMesh(
     RayTracing::CommandList* pCommandList, 
     vector<Resource::uptr>& uploaders)
 {
-    const auto Scale = 1.0f;
     // Vertex buffer
     {
         // Cube vertices positions and corresponding triangle normals.
         Vertex vertices[] =
         {
-            { XMFLOAT3(-Scale, Scale, -Scale), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-            { XMFLOAT3(Scale, Scale, -Scale), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-            { XMFLOAT3(Scale, Scale, Scale), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-            { XMFLOAT3(-Scale, Scale, Scale), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+            { XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+            { XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+            { XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+            { XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
 
-            { XMFLOAT3(-Scale, -Scale, -Scale), XMFLOAT3(0.0f, -1.0f, 0.0f) },
-            { XMFLOAT3(Scale, -Scale, -Scale), XMFLOAT3(0.0f, -1.0f, 0.0f) },
-            { XMFLOAT3(Scale, -Scale, Scale), XMFLOAT3(0.0f, -1.0f, 0.0f) },
-            { XMFLOAT3(-Scale, -Scale, Scale), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+            { XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+            { XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+            { XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+            { XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
 
-            { XMFLOAT3(-Scale, -Scale, Scale), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
-            { XMFLOAT3(-Scale, -Scale, -Scale), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
-            { XMFLOAT3(-Scale, Scale, -Scale), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
-            { XMFLOAT3(-Scale, Scale, Scale), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+            { XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+            { XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+            { XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+            { XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
 
-            { XMFLOAT3(Scale, -Scale, Scale), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-            { XMFLOAT3(Scale, -Scale, -Scale), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-            { XMFLOAT3(Scale, Scale, -Scale), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-            { XMFLOAT3(Scale, Scale, Scale), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+            { XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+            { XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+            { XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+            { XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
 
-            { XMFLOAT3(-Scale, -Scale, -Scale), XMFLOAT3(0.0f, 0.0f, -1.0f) },
-            { XMFLOAT3(Scale, -Scale, -Scale), XMFLOAT3(0.0f, 0.0f, -1.0f) },
-            { XMFLOAT3(Scale, Scale, -Scale), XMFLOAT3(0.0f, 0.0f, -1.0f) },
-            { XMFLOAT3(-Scale, Scale, -Scale), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+            { XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+            { XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+            { XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+            { XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
 
-            { XMFLOAT3(-Scale, -Scale, Scale), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-            { XMFLOAT3(Scale, -Scale, Scale), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-            { XMFLOAT3(Scale, Scale, Scale), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-            { XMFLOAT3(-Scale, Scale, Scale), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+            { XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+            { XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+            { XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+            { XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
         };
 
         auto& vertexBuffer = m_vertexBuffers[GROUND];
@@ -437,7 +433,7 @@ bool PRayTracer::createPipelineLayouts()
         pipelineLayout->SetRange(VERTEX_BUFFERS, DescriptorType::SRV, NUM_MESH, 0, 2);
         pipelineLayout->SetRootCBV(MATERIALS, 0);
         pipelineLayout->SetRootCBV(CONSTANTS, 1);
-        pipelineLayout->SetRange(G_BUFFERS, DescriptorType::SRV, 1, 1);
+        pipelineLayout->SetRange(ENV_TEXTURE, DescriptorType::SRV, 1, 1);
         X_RETURN(m_pipelineLayouts[RT_GLOBAL_LAYOUT], pipelineLayout->GetPipelineLayout(
             m_device.get(), m_pipelineLayoutCache.get(), PipelineLayoutFlag::NONE,
             L"RayTracerGlobalPipelineLayout"), false);
@@ -463,13 +459,22 @@ bool PRayTracer::createPipelineLayouts()
             L"RayTracerHitRadiancePipelineLayout"), false);
     }
 
+    // Pipeline layout for tone mapping
+    {
+        const auto pipelineLayout = Util::PipelineLayout::MakeUnique();
+        pipelineLayout->SetRange(0, DescriptorType::SRV, 1, 0);
+        pipelineLayout->SetShaderStage(0, Shader::Stage::PS);
+        X_RETURN(m_pipelineLayouts[TONEMAP_LAYOUT], pipelineLayout->GetPipelineLayout(m_pipelineLayoutCache.get(), PipelineLayoutFlag::NONE, L"ToneMappingPipelineLayout"), false);
+    }
+
     return true;
 }
 
-bool PRayTracer::createPipelines(
-    Format rtFormat)
+bool PRayTracer::createPipelines(Format rtFormat)
 {
     N_RETURN(m_shaderPool->CreateShader(Shader::Stage::CS, ShaderIndex::CS, L"PRayTracing.cso"), false);
+    N_RETURN(m_shaderPool->CreateShader(Shader::Stage::VS, ShaderIndex::VS, L"VSScreenQuad.cso"), false);
+    N_RETURN(m_shaderPool->CreateShader(Shader::Stage::PS, ShaderIndex::PS, L"PSToneMap.cso"), false);
 
     // Ray tracing pass
     {
@@ -487,12 +492,25 @@ bool PRayTracer::createPipelines(
         X_RETURN(m_pipelines[RAY_TRACING], state->GetPipeline(m_rayTracingPipelineCache.get(), L"Raytracing"), false);
     }
 
+    // Tone mapping
+    {
+        const auto state = Graphics::State::MakeUnique();
+        state->SetPipelineLayout(m_pipelineLayouts[TONEMAP_LAYOUT]);
+        state->SetShader(Shader::Stage::VS, m_shaderPool->GetShader(Shader::Stage::VS, ShaderIndex::VS));
+        state->SetShader(Shader::Stage::PS, m_shaderPool->GetShader(Shader::Stage::PS, ShaderIndex::PS));
+        state->DSSetState(Graphics::DEPTH_STENCIL_NONE, m_graphicsPipelineCache.get());
+        state->IASetPrimitiveTopologyType(PrimitiveTopologyType::TRIANGLE);
+        state->OMSetNumRenderTargets(1);
+        state->OMSetRTVFormat(0, rtFormat);
+        X_RETURN(m_pipelines[TONEMAP], state->GetPipeline(m_graphicsPipelineCache.get(), L"ToneMapping"), false);
+    }
+
     return true;
 }
 
 bool PRayTracer::createDescriptorTables()
 {
-    // Output UAV
+    // Raytracing output UAV
     {
         const auto descriptorTable = Util::DescriptorTable::MakeUnique();
         descriptorTable->SetDescriptors(0, 1, &m_outputView->GetUAV());
@@ -517,11 +535,18 @@ bool PRayTracer::createDescriptorTables()
         X_RETURN(m_srvTables[SRV_TABLE_VB], descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get()), false);
     }
 
-    // G-buffer SRV
+    // Environment texture SRV
     {
         const auto descriptorTable = Util::DescriptorTable::MakeUnique();
         descriptorTable->SetDescriptors(0, 1, &m_lightProbe->GetSRV());
-        X_RETURN(m_srvTables[SRV_TABLE_GB], descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get()), false);
+        X_RETURN(m_srvTables[SRV_TABLE_ENV], descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get()), false);
+    }
+
+    // Raytracing output SRV for tone mapping
+    {
+        const auto descriptorTable = Util::DescriptorTable::MakeUnique();
+        descriptorTable->SetDescriptors(0, 1, &m_outputView->GetSRV());
+        X_RETURN(m_srvTables[SRV_TABLE_RTOUT], descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get()), false);
     }
 
     // Create the sampler
@@ -634,7 +659,7 @@ bool PRayTracer::buildShaderTables()
     return true;
 }
 
-void PRayTracer::rayTrace(
+void PRayTracer::raytrace(
     const RayTracing::CommandList* pCommandList, 
     uint8_t                        frameIndex)
 {
@@ -647,9 +672,37 @@ void PRayTracer::rayTrace(
     pCommandList->SetComputeDescriptorTable(VERTEX_BUFFERS, m_srvTables[SRV_TABLE_VB]);
     pCommandList->SetComputeRootConstantBufferView(MATERIALS, m_cbMaterials.get());
     pCommandList->SetComputeRootConstantBufferView(CONSTANTS, m_cbRaytracing.get(), m_cbRaytracing->GetCBVOffset(frameIndex));
-    pCommandList->SetComputeDescriptorTable(G_BUFFERS, m_srvTables[SRV_TABLE_GB]);
+    pCommandList->SetComputeDescriptorTable(ENV_TEXTURE, m_srvTables[SRV_TABLE_ENV]);
 
     // Fallback layer has no depth
     pCommandList->DispatchRays(m_pipelines[RAY_TRACING], m_viewport.x, m_viewport.y, 1,
         m_hitGroupShaderTable.get(), m_missShaderTable.get(), m_rayGenShaderTables[frameIndex].get());
+
+    ResourceBarrier barriers[1];
+    uint32_t numBarriers = 0;
+    numBarriers = m_outputView->SetBarrier(barriers, ResourceState::UNORDERED_ACCESS, numBarriers);
+    pCommandList->Barrier(numBarriers, barriers);
+}
+
+void PRayTracer::toneMap(
+    const XUSG::CommandList* pCommandList, 
+    const Descriptor&        rtv,
+    uint32_t                 numBarriers, 
+    ResourceBarrier*         pBarriers)
+{
+    pCommandList->Barrier(numBarriers, pBarriers);
+    pCommandList->OMSetRenderTargets(1, &rtv);
+
+    pCommandList->SetGraphicsPipelineLayout(m_pipelineLayouts[TONEMAP_LAYOUT]);
+    pCommandList->SetGraphicsDescriptorTable(0, m_srvTables[SRV_TABLE_RTOUT]);
+
+    pCommandList->SetPipelineState(m_pipelines[TONEMAP]);
+
+    Viewport viewport(0.0f, 0.0f, static_cast<float>(m_viewport.x), static_cast<float>(m_viewport.y));
+    RectRange scissorRect(0, 0, m_viewport.x, m_viewport.y);
+    pCommandList->RSSetViewports(1, &viewport);
+    pCommandList->RSSetScissorRects(1, &scissorRect);
+
+    pCommandList->IASetPrimitiveTopology(PrimitiveTopology::TRIANGLELIST);
+    pCommandList->Draw(3, 1, 0, 0);
 }

@@ -7,7 +7,7 @@
 //--------------------------------------------------------------------------------------
 float4 main(uint vid : SV_VERTEXID) : SV_POSITION
 {
-    float2 uv = float2((vid << 1) & 2, vid & 2);
+    float2 uv = float2((vid & 1) << 1, vid & 2);
 
     return float4(uv * float2(2.0, -2.0) + float2(-1.0, 1.0), 1.0.xx);
 }

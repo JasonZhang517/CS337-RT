@@ -24,13 +24,10 @@ public:
     bool Init(XUSG::RayTracing::CommandList* pCommandList, uint32_t width, uint32_t height,
         std::vector<XUSG::Resource::uptr>& uploaders, XUSG::RayTracing::GeometryBuffer* pGeometries,
         const char* fileName, const wchar_t* envFileName, XUSG::Format rtFormat,
-        const DirectX::XMFLOAT4& posScale = DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f),
-        uint8_t maxGBufferMips = 1);
+        const DirectX::XMFLOAT4& posScale = DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f));
     void UpdateFrame(uint8_t frameIndex, DirectX::CXMVECTOR eyePt, DirectX::CXMMATRIX viewProj, float timeStep);
-    void Render(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex);
+    void Render(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex, const XUSG::Descriptor& rtv, uint32_t numBarriers, XUSG::ResourceBarrier* pBarriers);
     void UpdateAccelerationStructures(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex);
-
-    const XUSG::Texture2D* GetRayTracingOutput() const;
 
     static const uint8_t FrameCount = 3;
 private:
@@ -39,6 +36,7 @@ private:
         RT_GLOBAL_LAYOUT,
         RAY_GEN_LAYOUT,
         HIT_RADIANCE_LAYOUT,
+        TONEMAP_LAYOUT,
 
         NUM_PIPELINE_LAYOUT
     };
@@ -46,6 +44,7 @@ private:
     enum PipelineIndex : uint8_t
     {
         RAY_TRACING,
+        TONEMAP,
 
         NUM_PIPELINE
     };
@@ -59,14 +58,15 @@ private:
         VERTEX_BUFFERS,
         MATERIALS,
         CONSTANTS,
-        G_BUFFERS
+        ENV_TEXTURE
     };
 
     enum SRVTable : uint8_t
     {
         SRV_TABLE_IB,
         SRV_TABLE_VB,
-        SRV_TABLE_GB,
+        SRV_TABLE_ENV,
+        SRV_TABLE_RTOUT,
 
         NUM_SRV_TABLE
     };
@@ -82,8 +82,8 @@ private:
     enum ShaderIndex : uint8_t
     {
         CS,
-
-        NUM_SHADER
+        VS,
+        PS
     };
 
     bool createVB(XUSG::RayTracing::CommandList* pCommandList, uint32_t numVert,
@@ -100,7 +100,8 @@ private:
         XUSG::RayTracing::GeometryBuffer* pGeometries);
     bool buildShaderTables();
 
-    void rayTrace(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex);
+    void raytrace(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex);
+    void toneMap(const XUSG::CommandList* pCommandList, const XUSG::Descriptor& rtv, uint32_t numBarriers, XUSG::ResourceBarrier* pBarriers);
 
     XUSG::RayTracing::Device::sptr m_device;
 
@@ -120,7 +121,6 @@ private:
     XUSG::DescriptorTable       m_srvTables[NUM_SRV_TABLE];
     XUSG::DescriptorTable       m_uavTable;
     XUSG::DescriptorTable       m_samplerTable;
-    XUSG::Framebuffer           m_framebuffer;
 
     XUSG::VertexBuffer::uptr    m_vertexBuffers[NUM_MESH];
     XUSG::IndexBuffer::uptr     m_indexBuffers[NUM_MESH];

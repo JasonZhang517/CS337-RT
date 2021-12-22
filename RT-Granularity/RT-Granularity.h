@@ -65,8 +65,8 @@ private:
     static const auto FrameCount = RayTracer::FrameCount;
 
     // Pipeline objects.
-    XUSG::Viewport          m_viewport;
-    XUSG::RectRange         m_scissorRect;
+    XUSG::Viewport                  m_viewport;
+    XUSG::RectRange                 m_scissorRect;
 
     XUSG::SwapChain::uptr           m_swapChain;
     XUSG::CommandAllocator::uptr    m_commandAllocators[COMMAND_ALLOCATOR_COUNT][FrameCount];
@@ -74,25 +74,24 @@ private:
 
     bool m_isDxrSupported;
 
-    XUSG::RayTracing::Device::sptr m_device;
-    XUSG::RenderTarget::uptr m_renderTargets[FrameCount];
+    XUSG::RayTracing::Device::sptr      m_device;
+    XUSG::RenderTarget::uptr            m_renderTargets[FrameCount];
     XUSG::RayTracing::CommandList::uptr m_commandLists[COMMAND_TYPE_COUNT];
 
     // App resources.
-    std::unique_ptr<RayTracer>      m_rayTracer;
-    std::unique_ptr<PostProcessor>  m_postProcessor;
-    XMFLOAT4X4  m_proj;
-    XMFLOAT4X4  m_view;
-    XMFLOAT3    m_focusPt;
-    XMFLOAT3    m_eyePt;
+    std::unique_ptr<RayTracer>  m_rayTracer;
+    XMFLOAT4X4                  m_proj;
+    XMFLOAT4X4                  m_view;
+    XMFLOAT3                    m_focusPt;
+    XMFLOAT3                    m_eyePt;
 
     // Synchronization objects.
-    uint8_t     m_frameIndex;
-    HANDLE      m_fenceEvent;
-    XUSG::Fence::uptr m_fence;
-    uint64_t    m_fenceValues[FrameCount];
+    uint8_t                     m_frameIndex;
+    HANDLE                      m_fenceEvent;
+    XUSG::Fence::uptr           m_fence;
+    uint64_t                    m_fenceValues[FrameCount];
 
-    XUSG::Semaphore m_semaphore;
+    XUSG::Semaphore             m_semaphore;
 
     // Application state
     bool        m_isPaused;

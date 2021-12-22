@@ -50,11 +50,11 @@ HSConstOut CalcHSPatchConstants(
 {
     HSConstOut Output;
 
-    Output.EdgeTessFactor[0] = 64.0f;
-    Output.EdgeTessFactor[1] = 64.0f;
-    Output.EdgeTessFactor[2] = 64.0f;
+    Output.EdgeTessFactor[0] = 4.0f;
+    Output.EdgeTessFactor[1] = 4.0f;
+    Output.EdgeTessFactor[2] = 4.0f;
 
-    Output.InsideTessFactor = 64.0f;
+    Output.InsideTessFactor = 4.0f;
 
     return Output;
 }

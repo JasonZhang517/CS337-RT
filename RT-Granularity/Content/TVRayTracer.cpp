@@ -10,7 +10,7 @@
 #undef _INDEPENDENT_DDS_LOADER_
 #include "DirectXPackedVector.h"
 
-#define USE_COMPLEX_TESSELLATOR 0
+#define USE_COMPLEX_TESSELLATOR 1
 
 using namespace std;
 using namespace DirectX;
@@ -799,7 +799,7 @@ void TVRayTracer::zPrepass(
 
     // Record commands.
 #if USE_COMPLEX_TESSELLATOR
-    pCommandList->IASetPrimitiveTopology(PrimitiveTopology::CONTROL_POINT13_PATCHLIST);
+    pCommandList->IASetPrimitiveTopology(PrimitiveTopology::CONTROL_POINT3_PATCHLIST);
 #else
     pCommandList->IASetPrimitiveTopology(PrimitiveTopology::CONTROL_POINT3_PATCHLIST);
 #endif
@@ -850,7 +850,7 @@ void TVRayTracer::gbufferPass(
     pCommandList->RSSetScissorRects(1, &scissorRect);
 
 #if USE_COMPLEX_TESSELLATOR
-    pCommandList->IASetPrimitiveTopology(PrimitiveTopology::CONTROL_POINT13_PATCHLIST);
+    pCommandList->IASetPrimitiveTopology(PrimitiveTopology::CONTROL_POINT3_PATCHLIST);
 #else
     pCommandList->IASetPrimitiveTopology(PrimitiveTopology::CONTROL_POINT3_PATCHLIST);
 #endif
