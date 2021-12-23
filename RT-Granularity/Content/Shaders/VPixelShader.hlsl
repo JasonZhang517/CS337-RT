@@ -4,11 +4,18 @@ struct PSIn
     float3 Color : Color;
 };
 
-// RWTexture2D<float3> g_outputView : register(u0);
-
-float4 main(PSIn input) : SV_Target
+cbuffer cbEnv : register(b0)
 {
-    // float2 pos = input.Pos.xy / input.Pos.w;
-    // g_outputView[pos] = input.Color;
-    return float4(input.Color, 1.0);
+    matrix g_projToWorld;
+    float3 g_eyePt;
+    float2 g_viewPort;
+};
+
+RWTexture2D<float3> g_outputView : register(u0);
+
+[earlydepthstencil]
+void main(PSIn input)
+{
+    float2 pos = input.Pos.xy;
+    g_outputView[pos] = input.Color;
 }

@@ -33,6 +33,9 @@ public:
 private:
     enum PipelineLayoutIndex : uint8_t
     {
+        Z_PRE_LAYOUT,
+        ENV_PRE_LAYOUT,
+        
         RT_GLOBAL_LAYOUT,
         RAY_GEN_LAYOUT,
         HIT_RADIANCE_LAYOUT,
@@ -40,6 +43,7 @@ private:
         RENDER_GLOBAL_LAYOUT,
         RENDER_RAYGEN_LAYOUT,
 
+        GRAPHICS_LAYOUT,
         TONEMAP_LAYOUT,
 
         NUM_PIPELINE_LAYOUT
@@ -47,8 +51,11 @@ private:
 
     enum PipelineIndex : uint8_t
     {
+        Z_PREPASS,
+        ENV_PREPASS,
         RAY_TRACING,
         RENDER,
+        GRAPHICS,
         TONEMAP,
 
         NUM_PIPELINE
@@ -97,10 +104,14 @@ private:
 
     enum ShaderIndex : uint8_t
     {
+        VS_DEPTH,
+        VS_SQUAD,
+        PS_ENV,
         CS_RT,
         CS_RENDER,
-        VS,
-        PS
+        VS_GRAPHICS,
+        PS_GRAPHICS,
+        PS_TONEMAP
     };
 
     bool createVB(XUSG::RayTracing::CommandList* pCommandList, uint32_t numVert,
@@ -111,14 +122,17 @@ private:
         std::vector<XUSG::Resource::uptr>& uploaders);
     bool createInputLayout();
     bool createPipelineLayouts();
-    bool createPipelines(XUSG::Format rtFormat);
+    bool createPipelines(XUSG::Format rtFormat, XUSG::Format dsFormat);
     bool createDescriptorTables();
     bool buildAccelerationStructures(const XUSG::RayTracing::CommandList* pCommandList,
         XUSG::RayTracing::GeometryBuffer* pGeometries);
     bool buildShaderTables();
 
+    void zPrepass(const XUSG::CommandList* pCommandList, uint8_t frameIndex);
+    void envPrepass(const XUSG::CommandList* pCommandList, uint8_t frameIndex);
     void raytrace(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex);
     void renderOutput(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex);
+    void rasterize(const XUSG::CommandList* pCommandList, uint8_t frameIndex);
     void toneMap(const XUSG::CommandList* pCommandList, const XUSG::Descriptor& rtv, uint32_t numBarriers, XUSG::ResourceBarrier* pBarriers);
 
     XUSG::RayTracing::Device::sptr m_device;
@@ -140,16 +154,19 @@ private:
     XUSG::DescriptorTable           m_srvTables[NUM_SRV_TABLE];
     XUSG::DescriptorTable           m_uavTables[NUM_UAV_TABLE];
     XUSG::DescriptorTable           m_samplerTable;
+    XUSG::Framebuffer               m_framebuffer;
 
     XUSG::VertexBuffer::uptr        m_vertexBuffers[NUM_MESH];
     XUSG::IndexBuffer::uptr         m_indexBuffers[NUM_MESH];
 
+    XUSG::DepthStencil::sptr        m_depth;
     XUSG::Texture2D::uptr           m_outputView;
     XUSG::StructuredBuffer::uptr    m_vertexColors[NUM_MESH];
 
     XUSG::ConstantBuffer::uptr      m_cbMaterials;
     XUSG::ConstantBuffer::uptr      m_cbRaytracing;
     XUSG::ConstantBuffer::uptr      m_cbGraphics[NUM_MESH];
+    XUSG::ConstantBuffer::uptr      m_cbEnv;
 
     XUSG::Resource::uptr            m_scratch;
     XUSG::Resource::uptr            m_instances[FrameCount];

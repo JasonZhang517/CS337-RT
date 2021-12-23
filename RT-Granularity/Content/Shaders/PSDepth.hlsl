@@ -1,6 +1,6 @@
 struct PSIn
 {
-    float4 Pos : SV_POSITION;
+    float4 Pos  : SV_POSITION;
     float3 Norm : NORMAL;
 };
 

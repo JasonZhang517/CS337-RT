@@ -23,13 +23,7 @@ cbuffer cbPerObjectInstance : register(b1)
     uint     g_instanceIdx;
 };
 
-cbuffer cbMaterial : register(b2)
-{
-    float4 g_baseColor[2];
-    float4 g_albedo[2];
-};
-
-Buffer<float3> g_vertexColors[] : register(t0);
+StructuredBuffer<float3> g_vertexColors[] : register(t0);
 
 VSOut main(VSIn input)
 {
@@ -37,9 +31,7 @@ VSOut main(VSIn input)
 
     output.Pos = mul(float4(input.Pos, 1.0), g_worldViewProj);
     output.Pos.xy += g_projBias * output.Pos.w;
-    // output.Norm = mul(input.Norm, g_worldIT);
     output.Color = g_vertexColors[g_instanceIdx][input.vId];
-    // output.Color = g_baseColor[g_instanceIdx].xyz;
 
     return output;
 }

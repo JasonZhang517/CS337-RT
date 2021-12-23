@@ -158,10 +158,16 @@
       <Filter>Shaders\PerVertex</Filter>
     </FxCompile>
     <FxCompile Include="Content\Shaders\VSScreenQuad.hlsl">
-      <Filter>Shaders\PerPixel</Filter>
+      <Filter>Shaders</Filter>
     </FxCompile>
     <FxCompile Include="Content\Shaders\PSToneMap.hlsl">
-      <Filter>Shaders\PerPixel</Filter>
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Content\Shaders\PSEnv.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Content\Shaders\VSDepthNew.hlsl">
+      <Filter>Shaders</Filter>
     </FxCompile>
   </ItemGroup>
   <ItemGroup>

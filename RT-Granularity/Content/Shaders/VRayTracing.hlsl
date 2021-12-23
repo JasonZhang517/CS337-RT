@@ -63,10 +63,9 @@ StructuredBuffer<Vertex>    g_vertexBuffers[] : register(t0, space2);
 //--------------------------------------------------------------------------------------
 SamplerState g_sampler : register(s0);
 
-float3 environment(float3 dir, float3 ddx = 0.0, float3 ddy = 0.0)
+float3 environment(float3 dir)
 {
-    return ((abs(ddx) + abs(ddy) > 0.0 ? g_txEnv.SampleGrad(g_sampler, dir, ddx, ddy) :
-        g_txEnv.SampleLevel(g_sampler, dir, 0.0)));
+    return g_txEnv.SampleLevel(g_sampler, dir, 0.0);
 }
 
 Vertex getInput(float2 barycentrics)
