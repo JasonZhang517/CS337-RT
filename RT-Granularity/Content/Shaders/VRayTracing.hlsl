@@ -1,4 +1,4 @@
-#include "VMaterial.hlsli"
+#include "Material.hlsli"
 
 typedef RaytracingAccelerationStructure       RaytracingAS;
 typedef BuiltInTriangleIntersectionAttributes TriAttributes;

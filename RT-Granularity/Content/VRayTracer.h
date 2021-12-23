@@ -40,9 +40,6 @@ private:
         RAY_GEN_LAYOUT,
         HIT_RADIANCE_LAYOUT,
 
-        RENDER_GLOBAL_LAYOUT,
-        RENDER_RAYGEN_LAYOUT,
-
         GRAPHICS_LAYOUT,
         TONEMAP_LAYOUT,
 
@@ -54,7 +51,6 @@ private:
         Z_PREPASS,
         ENV_PREPASS,
         RAY_TRACING,
-        RENDER,
         GRAPHICS,
         TONEMAP,
 
@@ -108,7 +104,6 @@ private:
         VS_SQUAD,
         PS_ENV,
         CS_RT,
-        CS_RENDER,
         VS_GRAPHICS,
         PS_GRAPHICS,
         PS_TONEMAP
@@ -131,7 +126,6 @@ private:
     void zPrepass(const XUSG::CommandList* pCommandList, uint8_t frameIndex);
     void envPrepass(const XUSG::CommandList* pCommandList, uint8_t frameIndex);
     void raytrace(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex);
-    void renderOutput(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex);
     void rasterize(const XUSG::CommandList* pCommandList, uint8_t frameIndex);
     void toneMap(const XUSG::CommandList* pCommandList, const XUSG::Descriptor& rtv, uint32_t numBarriers, XUSG::ResourceBarrier* pBarriers);
 
@@ -179,18 +173,9 @@ private:
     static const wchar_t* ClosestHitShaderNames[NUM_HIT_GROUP];
     static const wchar_t* MissShaderNames[NUM_HIT_GROUP];
 
-    static const wchar_t* RenderHitGroupName;
-    static const wchar_t* RenderRaygenShaderName;
-    static const wchar_t* RenderClosestHitShaderName;
-    static const wchar_t* RenderMissShaderName;
-
     XUSG::RayTracing::ShaderTable::uptr     m_missShaderTable;
     XUSG::RayTracing::ShaderTable::uptr     m_hitGroupShaderTable;
     XUSG::RayTracing::ShaderTable::uptr     m_rayGenShaderTables[FrameCount];
-
-    XUSG::RayTracing::ShaderTable::uptr     m_renderMissShaderTable;
-    XUSG::RayTracing::ShaderTable::uptr     m_renderHitGroupShaderTable;
-    XUSG::RayTracing::ShaderTable::uptr     m_renderRayGenShaderTables[FrameCount];
 
     XUSG::ShaderPool::uptr                  m_shaderPool;
     XUSG::RayTracing::PipelineCache::uptr   m_rayTracingPipelineCache;
