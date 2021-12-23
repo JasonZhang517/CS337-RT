@@ -79,10 +79,10 @@ bool TVRayTracer::Init(
     RayTracing::CommandList* pCommandList,
     uint32_t                 width,
     uint32_t                 height,
-    vector<Resource::uptr>& uploaders,
-    GeometryBuffer* pGeometries,
-    const char* fileName,
-    const wchar_t* envFileName,
+    vector<Resource::uptr>&  uploaders,
+    GeometryBuffer*          pGeometries,
+    const char*              fileName,
+    const wchar_t*           envFileName,
     Format                   rtFormat,
     const XMFLOAT4& posScale)
 {

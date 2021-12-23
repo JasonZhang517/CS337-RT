@@ -16,9 +16,9 @@ struct VSIn
 //--------------------------------------------------------------------------------------
 cbuffer cbPerObject : register(b0)
 {
-    matrix g_worldViewProj;
+    matrix   g_worldViewProj;
     float3x3 g_worldIT;
-    float2 g_projBias;
+    float2   g_projBias;
 };
 
 //--------------------------------------------------------------------------------------

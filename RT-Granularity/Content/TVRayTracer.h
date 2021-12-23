@@ -103,6 +103,8 @@ private:
         VS_DEPTH,
         VS_SQUAD,
         PS_ENV,
+        HS_SIMPLE,
+        DS_SIMPLE,
         CS_RT,
         VS_GRAPHICS,
         PS_GRAPHICS,

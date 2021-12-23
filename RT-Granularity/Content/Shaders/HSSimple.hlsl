@@ -1,19 +1,19 @@
 struct VSOut
 {
-    float3 Pos : WORLDPOS;
-    float3 Norm : NORMAL;
+    float3 Pos  : WorldPos;
+    float3 Norm : Normal;
 };
 
 struct HSControlOut
 {
-    float3 Pos : WORLDPOS;
-    float3 Norm : NORMAL;
+    float3 Pos  : WorldPos;
+    float3 Norm : Normal;
 };
 
 struct HSConstOut
 {
-    float EdgeTessFactor[3]			: SV_TessFactor;
-    float InsideTessFactor			: SV_InsideTessFactor;
+    float EdgeTessFactor[3] : SV_TessFactor;
+    float InsideTessFactor  : SV_InsideTessFactor;
 };
 
 #define NUM_CONTROL_POINTS 3
@@ -35,12 +35,12 @@ HSConstOut CalcHSPatchConstants(
 [domain("tri")]
 [partitioning("fractional_odd")]
 [outputtopology("triangle_cw")]
-[outputcontrolpoints(3)]
+[outputcontrolpoints(NUM_CONTROL_POINTS)]
 [patchconstantfunc("CalcHSPatchConstants")]
 HSControlOut main( 
-    InputPatch<VSOut, NUM_CONTROL_POINTS> ip, 
+    InputPatch<VSOut, 3> ip, 
     uint i : SV_OutputControlPointID,
-    uint PatchID : SV_PrimitiveID )
+    uint PatchID : SV_PrimitiveID)
 {
     HSControlOut Output;
 
