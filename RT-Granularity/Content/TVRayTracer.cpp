@@ -446,7 +446,7 @@ bool TVRayTracer::createGroundMesh(
         for (auto i = 0u; i < N; ++i)
             for (auto j = 0u; j < N; ++j)
                 vertices[2 * N * N + N * i + j] = {
-                    XMFLOAT3(-1.0f, -1.0f + 2.0f * j / (N - 1), 1.0 - 2.0f * i / (N - 1)),
+                    XMFLOAT3(-1.0f, -1.0f + 2.0f * j / (N - 1), 1.0f - 2.0f * i / (N - 1)),
                     XMFLOAT3(-1.0f, 0.0f, 0.0f)
                 };
         for (auto i = 0u; i < N; ++i)
@@ -542,8 +542,8 @@ bool TVRayTracer::createPipelineLayouts()
     {
         // Get pipeline layout
         const auto pipelineLayout = Util::PipelineLayout::MakeUnique();
-        pipelineLayout->SetConstants(0, SizeOfInUint32(CBTessellation), 0);
-        pipelineLayout->SetRootCBV(1, 1, 0, Shader::Stage::DS);
+        pipelineLayout->SetConstants(0, 1, 0, 0, Shader::Stage::HS);
+        pipelineLayout->SetRootCBV(1, 0, 0, Shader::Stage::DS);
         X_RETURN(m_pipelineLayouts[Z_PRE_LAYOUT], pipelineLayout->GetPipelineLayout(m_pipelineLayoutCache.get(),
             PipelineLayoutFlag::ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT, L"ZPrepassLayout"), false);
     }
@@ -631,12 +631,13 @@ bool TVRayTracer::createPipelineLayouts()
 bool TVRayTracer::createPipelines(Format rtFormat, Format dsFormat)
 {
     N_RETURN(m_shaderPool->CreateShader(Shader::Stage::VS, ShaderIndex::VS_IDENT, L"VSIdent.cso"), false);
+    N_RETURN(m_shaderPool->CreateShader(Shader::Stage::HS, ShaderIndex::HS_DEPTH, L"HSDepth.cso"), false);
+    N_RETURN(m_shaderPool->CreateShader(Shader::Stage::DS, ShaderIndex::DS_DEPTH, L"DSDepth.cso"), false);
     N_RETURN(m_shaderPool->CreateShader(Shader::Stage::VS, ShaderIndex::VS_SQUAD, L"VSScreenQuad.cso"), false);
     N_RETURN(m_shaderPool->CreateShader(Shader::Stage::PS, ShaderIndex::PS_ENV, L"PSEnv.cso"), false);
-    N_RETURN(m_shaderPool->CreateShader(Shader::Stage::CS, ShaderIndex::CS_RT, L"TVRayTracing.cso"), false);
     N_RETURN(m_shaderPool->CreateShader(Shader::Stage::HS, ShaderIndex::HS_GRAPHICS, L"TVHullShader.cso"), false);
-    N_RETURN(m_shaderPool->CreateShader(Shader::Stage::DS, ShaderIndex::DS_DEPTH, L"TVDSDepth.cso"), false);
     N_RETURN(m_shaderPool->CreateShader(Shader::Stage::DS, ShaderIndex::DS_TESS, L"TVDSTess.cso"), false);
+    N_RETURN(m_shaderPool->CreateShader(Shader::Stage::CS, ShaderIndex::CS_RT, L"TVRayTracing.cso"), false);
     N_RETURN(m_shaderPool->CreateShader(Shader::Stage::DS, ShaderIndex::DS_GRAPHICS, L"TVDSGraphics.cso"), false);
     N_RETURN(m_shaderPool->CreateShader(Shader::Stage::PS, ShaderIndex::PS_GRAPHICS, L"TVPixelShader.cso"), false);
     N_RETURN(m_shaderPool->CreateShader(Shader::Stage::PS, ShaderIndex::PS_TONEMAP, L"PSToneMap.cso"), false);
@@ -646,7 +647,7 @@ bool TVRayTracer::createPipelines(Format rtFormat, Format dsFormat)
         const auto state = Graphics::State::MakeUnique();
         state->SetPipelineLayout(m_pipelineLayouts[Z_PRE_LAYOUT]);
         state->SetShader(Shader::Stage::VS, m_shaderPool->GetShader(Shader::Stage::VS, ShaderIndex::VS_IDENT));
-        state->SetShader(Shader::Stage::HS, m_shaderPool->GetShader(Shader::Stage::HS, ShaderIndex::HS_GRAPHICS));
+        state->SetShader(Shader::Stage::HS, m_shaderPool->GetShader(Shader::Stage::HS, ShaderIndex::HS_DEPTH));
         state->SetShader(Shader::Stage::DS, m_shaderPool->GetShader(Shader::Stage::DS, ShaderIndex::DS_DEPTH));
         state->IASetInputLayout(m_pInputLayout);
         state->IASetPrimitiveTopologyType(PrimitiveTopologyType::PATCH);
@@ -944,8 +945,7 @@ void TVRayTracer::zPrepass(
     for (auto i = 0u; i < NUM_MESH; ++i)
     {
         // Set descriptor tables
-        CBTessellation tessConsts = { i, m_tessFactor, m_maxVertPerPatch };
-        pCommandList->SetGraphics32BitConstants(0, SizeOfInUint32(tessConsts), &tessConsts);
+        pCommandList->SetGraphics32BitConstant(0, m_tessFactor);
         pCommandList->SetGraphicsRootConstantBufferView(1, m_cbGraphics[i].get(), m_cbGraphics[i]->GetCBVOffset(frameIndex));
         pCommandList->IASetVertexBuffers(0, 1, &m_vertexBuffers[i]->GetVBV());
         pCommandList->IASetIndexBuffer(m_indexBuffers[i]->GetIBV());

@@ -31,7 +31,7 @@ public:
 
     static const uint8_t FrameCount = 3;
     static const uint8_t MinTessFactor = 1;
-    static const uint8_t MaxTessFactor = 5;
+    static const uint8_t MaxTessFactor = 9;
 private:
     enum PipelineLayoutIndex : uint8_t
     {
@@ -102,11 +102,15 @@ private:
 
     enum ShaderIndex : uint8_t
     {
-        VS_DEPTH,
+        VS_IDENT,
+        HS_DEPTH,
+        DS_DEPTH,
         VS_SQUAD,
         PS_ENV,
         CS_RT,
         VS_GRAPHICS,
+        HS_GRAPHICS,
+        DS_GRAPHICS,
         PS_GRAPHICS,
         PS_TONEMAP
     };

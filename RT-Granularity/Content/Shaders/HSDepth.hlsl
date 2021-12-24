@@ -1,15 +1,12 @@
-#include "TVTessCommon.hlsli"
+#include "TessDepthCommon.hlsli"
 
-struct VSOut
+cbuffer cbTessellation : register(b0)
 {
-    float3 Pos : Position;
+    uint g_tessFactor;
 };
 
-#define NUM_PATCH_POINTS   3
-#define NUM_CONTROL_POINTS 3
-
 HSConstOut CalcHSPatchConstants(
-    InputPatch<VSOut, NUM_PATCH_POINTS> ip,
+    InputPatch<VSOut, 3> ip,
     uint PatchID : SV_PrimitiveID)
 {
     HSConstOut Output;
@@ -25,16 +22,13 @@ HSConstOut CalcHSPatchConstants(
 [domain("tri")]
 [partitioning("integer")]
 [outputtopology("triangle_cw")]
-[outputcontrolpoints(NUM_CONTROL_POINTS)]
+[outputcontrolpoints(3)]
 [patchconstantfunc("CalcHSPatchConstants")]
 HSControlOut main(
-    InputPatch<VSOut, NUM_PATCH_POINTS> ip,
+    InputPatch<VSOut, 3> ip,
     uint i : SV_OutputControlPointID,
     uint PatchID : SV_PrimitiveID)
 {
-    HSControlOut Output;
-
-    Output.Pos = ip[i].Pos;
-
+    HSControlOut Output = { ip[i].Pos };
     return Output;
 }

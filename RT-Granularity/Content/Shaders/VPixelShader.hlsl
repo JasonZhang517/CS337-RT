@@ -1,8 +1,4 @@
-struct PSIn
-{
-    float4 Pos   : SV_Position;
-    float3 Color : Color;
-};
+#include "VCommon.hlsli"
 
 RWTexture2D<float3> g_outputView : register(u0);
 

@@ -1,4 +1,4 @@
-#include "TessCommon.hlsli"
+#include "TVTessCommon.hlsli"
 
 RWStructuredBuffer<float2> g_tessDomains[] : register(u0);
 

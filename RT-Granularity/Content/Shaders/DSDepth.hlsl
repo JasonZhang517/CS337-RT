@@ -1,10 +1,10 @@
-#include "TessCommon.hlsli"
+#include "TessDepthCommon.hlsli"
 
-cbuffer cbGraphics : register(b1)
+cbuffer cbGraphics : register(b0)
 {
-    matrix g_worldViewProj;
+    matrix   g_worldViewProj;
     float3x3 g_worldIT;
-    float2 g_projBias;
+    float2   g_projBias;
 };
 
 [domain("tri")]

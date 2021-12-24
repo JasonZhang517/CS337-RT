@@ -1,4 +1,4 @@
-#include "TessCommon.hlsli"
+#include "TVTessCommon.hlsli"
 
 struct PSIn
 {

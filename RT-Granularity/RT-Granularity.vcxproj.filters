@@ -121,12 +121,6 @@
     <FxCompile Include="Content\Shaders\PSEnv.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="Content\Shaders\VSDepth.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="Content\Shaders\VSIdent.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
     <FxCompile Include="Content\Shaders\VPixelShader.hlsl">
       <Filter>Shaders\PerVertex</Filter>
     </FxCompile>
@@ -134,9 +128,6 @@
       <Filter>Shaders\PerVertex</Filter>
     </FxCompile>
     <FxCompile Include="Content\Shaders\TVDSTess.hlsl">
-      <Filter>Shaders\PerTessVertex</Filter>
-    </FxCompile>
-    <FxCompile Include="Content\Shaders\TVDSDepth.hlsl">
       <Filter>Shaders\PerTessVertex</Filter>
     </FxCompile>
     <FxCompile Include="Content\Shaders\TVDSGraphics.hlsl">
@@ -148,6 +139,21 @@
     <FxCompile Include="Content\Shaders\TVPixelShader.hlsl">
       <Filter>Shaders\PerTessVertex</Filter>
     </FxCompile>
+    <FxCompile Include="Content\Shaders\VHullShader.hlsl">
+      <Filter>Shaders\PerVertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Content\Shaders\VSIdent.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Content\Shaders\HSDepth.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Content\Shaders\DSDepth.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Content\Shaders\VDomainShader.hlsl">
+      <Filter>Shaders\PerVertex</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
@@ -157,8 +163,14 @@
     <None Include="Content\Shaders\RTCommon.hlsli">
       <Filter>Shaders</Filter>
     </None>
-    <None Include="Content\Shaders\TessCommon.hlsli">
+    <None Include="Content\Shaders\TVTessCommon.hlsli">
       <Filter>Shaders\PerTessVertex</Filter>
+    </None>
+    <None Include="Content\Shaders\TessDepthCommon.hlsli">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Content\Shaders\VCommon.hlsli">
+      <Filter>Shaders\PerVertex</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

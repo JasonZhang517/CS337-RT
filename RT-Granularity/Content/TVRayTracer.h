@@ -107,13 +107,14 @@ private:
 
     enum ShaderIndex : uint8_t
     {
+        VS_IDENT,
+        HS_DEPTH,
+        DS_DEPTH,
         VS_SQUAD,
         PS_ENV,
-        CS_RT,
-        VS_IDENT,
         HS_GRAPHICS,
-        DS_DEPTH,
         DS_TESS,
+        CS_RT,
         DS_GRAPHICS,
         PS_GRAPHICS,
         PS_TONEMAP

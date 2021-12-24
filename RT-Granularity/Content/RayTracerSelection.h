@@ -4,7 +4,7 @@
 #define PER_VERTEX     2
 #define PER_TES_VERTEX 3
 
-#define RAYTRACER_TYPE PER_TES_VERTEX
+#define RAYTRACER_TYPE PER_PIXEL
 
 #if RAYTRACER_TYPE == PER_PIXEL
     #include "PRayTracer.h"
