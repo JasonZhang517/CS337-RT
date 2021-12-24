@@ -13,7 +13,6 @@
 
 #include "DXFramework.h"
 #include "StepTimer.h"
-#include "PostProcessor.h"
 #include "RayTracerSelection.h"
 
 using namespace DirectX;
@@ -63,6 +62,8 @@ private:
     };
 
     static const auto FrameCount = RayTracer::FrameCount;
+    static const auto MinTessFactor = RayTracer::MinTessFactor;
+    static const auto MaxTessFactor = RayTracer::MaxTessFactor;
 
     // Pipeline objects.
     XUSG::Viewport                  m_viewport;
@@ -84,6 +85,7 @@ private:
     XMFLOAT4X4                  m_view;
     XMFLOAT3                    m_focusPt;
     XMFLOAT3                    m_eyePt;
+    uint32_t                    m_tessFactor;
 
     // Synchronization objects.
     uint8_t                     m_frameIndex;

@@ -25,11 +25,13 @@ public:
         std::vector<XUSG::Resource::uptr>& uploaders, XUSG::RayTracing::GeometryBuffer* pGeometries,
         const char* fileName, const wchar_t* envFileName, XUSG::Format rtFormat,
         const DirectX::XMFLOAT4& posScale = DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f));
-    void UpdateFrame(uint8_t frameIndex, DirectX::CXMVECTOR eyePt, DirectX::CXMMATRIX viewProj, float timeStep);
+    void UpdateFrame(uint8_t frameIndex, DirectX::CXMVECTOR eyePt, DirectX::CXMMATRIX viewProj, float timeStep, uint32_t tessFactor);
     void Render(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex, const XUSG::Descriptor& rtv, uint32_t numBarriers, XUSG::ResourceBarrier* pBarriers);
     void UpdateAccelerationStructures(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex);
 
     static const uint8_t FrameCount = 3;
+    static const uint8_t MinTessFactor = 1;
+    static const uint8_t MaxTessFactor = 5;
 private:
     enum PipelineLayoutIndex : uint8_t
     {

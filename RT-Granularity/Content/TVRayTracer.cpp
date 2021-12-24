@@ -141,23 +141,19 @@ bool TVRayTracer::Init(
 
     for (auto i = 0u; i < NUM_MESH; ++i)
     {
-        m_numMaxTessVerts[i] = m_numIndices[i] * m_maxVertPerPatch / 3u;
+        m_numMaxTessVerts[i] = m_numIndices[i] / 3u * m_maxVertPerPatch;
     }
 
     // Create tessellated vertex color buffer
     for (auto i = 0u; i < NUM_MESH; ++i)
     {
-        auto& tessColor = m_tessColors[i];
-        tessColor = StructuredBuffer::MakeUnique();
-        N_RETURN(tessColor->Create(m_device.get(), m_numMaxTessVerts[i], sizeof(XMFLOAT3), ResourceFlag::ALLOW_UNORDERED_ACCESS), false);
-    }
+        const uint32_t MMVerts = m_numIndices[i] / 3u * calcMaxVertPerPatch(MaxTessFactor);
 
-    // Create tessellation domains buffer
-    for (auto i = 0u; i < NUM_MESH; ++i)
-    {
-        auto& tessDom = m_tessDoms[i];
-        tessDom = StructuredBuffer::MakeUnique();
-        N_RETURN(tessDom->Create(m_device.get(), m_numMaxTessVerts[i], sizeof(XMFLOAT2), ResourceFlag::ALLOW_UNORDERED_ACCESS), false);
+        m_tessColors[i] = StructuredBuffer::MakeUnique();
+        N_RETURN(m_tessColors[i]->Create(m_device.get(), MMVerts, sizeof(XMFLOAT3), ResourceFlag::ALLOW_UNORDERED_ACCESS), false);
+
+        m_tessDoms[i] = StructuredBuffer::MakeUnique();
+        N_RETURN(m_tessDoms[i]->Create(m_device.get(), MMVerts, sizeof(XMFLOAT2), ResourceFlag::ALLOW_UNORDERED_ACCESS), false);
     }
 
     m_cbGlobal = ConstantBuffer::MakeUnique();
@@ -275,7 +271,8 @@ void TVRayTracer::UpdateFrame(
     uint8_t   frameIndex,
     CXMVECTOR eyePt,
     CXMMATRIX viewProj,
-    float     timeStep)
+    float     timeStep,
+    uint32_t  tessFactor)
 {
     const auto halton = IncrementalHalton();
     XMFLOAT2 projBias =
@@ -333,6 +330,16 @@ void TVRayTracer::UpdateFrame(
             XMStoreFloat3x4(&pCbGraphics->WorldIT, i ? rot : XMMatrixIdentity());
         }
     }
+
+    if (m_tessFactor != tessFactor)
+    {
+        m_tessFactor = tessFactor;
+        m_maxVertPerPatch = calcMaxVertPerPatch(m_tessFactor);
+        for (auto i = 0u; i < NUM_MESH; ++i)
+        {
+            m_numMaxTessVerts[i] = m_numIndices[i] / 3u * m_maxVertPerPatch;
+        }
+    }
 }
 
 void TVRayTracer::Render(
@@ -381,8 +388,8 @@ bool TVRayTracer::createVB(
     RayTracing::CommandList* pCommandList,
     uint32_t                 numVert,
     uint32_t                 stride,
-    const uint8_t* pData,
-    vector<Resource::uptr>& uploaders)
+    const uint8_t*           pData,
+    vector<Resource::uptr>&  uploaders)
 {
     m_numVerts[MODEL_OBJ] = numVert;
     auto& vertexBuffer = m_vertexBuffers[MODEL_OBJ];
@@ -399,8 +406,8 @@ bool TVRayTracer::createVB(
 bool TVRayTracer::createIB(
     RayTracing::CommandList* pCommandList,
     uint32_t                 numIndices,
-    const uint32_t* pData,
-    vector<Resource::uptr>& uploaders)
+    const uint32_t*          pData,
+    vector<Resource::uptr>&  uploaders)
 {
     m_numIndices[MODEL_OBJ] = numIndices;
 
@@ -632,7 +639,6 @@ bool TVRayTracer::createPipelines(Format rtFormat, Format dsFormat)
     N_RETURN(m_shaderPool->CreateShader(Shader::Stage::DS, ShaderIndex::DS_DEPTH, L"TVDSDepth.cso"), false);
     N_RETURN(m_shaderPool->CreateShader(Shader::Stage::DS, ShaderIndex::DS_TESS, L"TVDSTess.cso"), false);
     N_RETURN(m_shaderPool->CreateShader(Shader::Stage::DS, ShaderIndex::DS_GRAPHICS, L"TVDSGraphics.cso"), false);
-    N_RETURN(m_shaderPool->CreateShader(Shader::Stage::PS, ShaderIndex::PS_EMPTY, L"PSEmpty.cso"), false);
     N_RETURN(m_shaderPool->CreateShader(Shader::Stage::PS, ShaderIndex::PS_GRAPHICS, L"TVPixelShader.cso"), false);
     N_RETURN(m_shaderPool->CreateShader(Shader::Stage::PS, ShaderIndex::PS_TONEMAP, L"PSToneMap.cso"), false);
 
@@ -1036,16 +1042,10 @@ void TVRayTracer::rasterize(
     const XUSG::CommandList* pCommandList,
     uint8_t                  frameIndex)
 {
-    ResourceBarrier barriers[3];
+    ResourceBarrier barrier;
     const auto depthState = ResourceState::DEPTH_READ | ResourceState::NON_PIXEL_SHADER_RESOURCE;
-    auto numBarriers = m_depth->SetBarrier(barriers, depthState);
-    pCommandList->Barrier(numBarriers, barriers);
-
-    for (auto i = 0u; i < NUM_MESH; ++i)
-    {
-        numBarriers = m_tessColors[i]->SetBarrier(barriers, ResourceState::UNORDERED_ACCESS, numBarriers);
-    }
-    pCommandList->Barrier(numBarriers, barriers);
+    auto numBarriers = m_depth->SetBarrier(&barrier, depthState);
+    pCommandList->Barrier(numBarriers, &barrier);
 
     pCommandList->OMSetRenderTargets(0, nullptr, &m_depth->GetDSV());
 

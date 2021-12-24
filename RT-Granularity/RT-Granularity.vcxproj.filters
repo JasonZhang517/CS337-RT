@@ -25,9 +25,6 @@
     <Filter Include="Shaders">
       <UniqueIdentifier>{08d07ad3-d2bf-4b6d-98f9-a02af3447f31}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Shaders\Renderer">
-      <UniqueIdentifier>{80ef64d9-0d59-4edb-97fe-7f72cb8aafb0}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Shaders\PerPixel">
       <UniqueIdentifier>{8bee3b67-d692-4674-be9d-9f52ccbba516}</UniqueIdentifier>
     </Filter>
@@ -121,15 +118,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="Content\Shaders\VSBasePassNew.hlsl">
-      <Filter>Shaders\Renderer</Filter>
-    </FxCompile>
-    <FxCompile Include="Content\Shaders\PSGBufferNew.hlsl">
-      <Filter>Shaders\Renderer</Filter>
-    </FxCompile>
-    <FxCompile Include="Content\Shaders\PSDepth.hlsl">
-      <Filter>Shaders\Renderer</Filter>
-    </FxCompile>
     <FxCompile Include="Content\Shaders\VSScreenQuad.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
@@ -142,22 +130,7 @@
     <FxCompile Include="Content\Shaders\VSDepth.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="Content\Shaders\HullShader.hlsl">
-      <Filter>Shaders\Renderer</Filter>
-    </FxCompile>
-    <FxCompile Include="Content\Shaders\DomainShader.hlsl">
-      <Filter>Shaders\Renderer</Filter>
-    </FxCompile>
-    <FxCompile Include="Content\Shaders\HSSimple.hlsl">
-      <Filter>Shaders\Renderer</Filter>
-    </FxCompile>
-    <FxCompile Include="Content\Shaders\DSSimple.hlsl">
-      <Filter>Shaders\Renderer</Filter>
-    </FxCompile>
     <FxCompile Include="Content\Shaders\VSIdent.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="Content\Shaders\PSEmpty.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
     <FxCompile Include="Content\Shaders\VPixelShader.hlsl">
@@ -183,13 +156,7 @@
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Content\Shaders\BRDFModels.hlsli">
-      <Filter>Shaders\Renderer</Filter>
-    </None>
     <None Include="packages.config" />
-    <None Include="Content\Shaders\MaterialNew.hlsli">
-      <Filter>Shaders\Renderer</Filter>
-    </None>
     <None Include="Content\Shaders\Material.hlsli">
       <Filter>Shaders</Filter>
     </None>
@@ -201,9 +168,6 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="Content\Shaders\RayTracing.hlsl">
-      <Filter>Shaders\Renderer</Filter>
-    </CustomBuild>
     <CustomBuild Include="Content\Shaders\PRayTracing.hlsl">
       <Filter>Shaders\PerPixel</Filter>
     </CustomBuild>

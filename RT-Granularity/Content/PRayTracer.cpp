@@ -191,7 +191,8 @@ void PRayTracer::UpdateFrame(
     uint8_t   frameIndex, 
     CXMVECTOR eyePt, 
     CXMMATRIX viewProj, 
-    float     timeStep)
+    float     timeStep,
+    uint32_t tessFactor)
 {
     const auto halton = IncrementalHalton();
     XMFLOAT2 projBias =

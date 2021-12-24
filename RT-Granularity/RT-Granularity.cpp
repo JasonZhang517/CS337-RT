@@ -31,7 +31,8 @@ RTGranularity::RTGranularity(uint32_t width, uint32_t height, std::wstring name)
     m_tracking(false),
     m_meshFileName("Assets/bunny.obj"),
     m_envFileName(L"Assets/galileo_cross.dds"),
-    m_meshPosScale(0.0f, 0.0f, 0.0f, 1.0f)
+    m_meshPosScale(0.0f, 0.0f, 0.0f, 1.0f),
+    m_tessFactor(2)
 {
 #if defined (_DEBUG)
     _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
@@ -230,7 +231,7 @@ void RTGranularity::OnUpdate()
     const auto eyePt = XMLoadFloat3(&m_eyePt);
     const auto view = XMLoadFloat4x4(&m_view);
     const auto proj = XMLoadFloat4x4(&m_proj);
-    m_rayTracer->UpdateFrame(m_frameIndex, eyePt, view * proj, timeStep);
+    m_rayTracer->UpdateFrame(m_frameIndex, eyePt, view * proj, timeStep, m_tessFactor);
 }
 
 // Render the scene.
@@ -264,6 +265,12 @@ void RTGranularity::OnKeyUp(uint8_t key)
     {
     case VK_SPACE:
         m_isPaused = !m_isPaused;
+        break;
+    case VK_UP:
+        if (m_tessFactor < MaxTessFactor) m_tessFactor += 1;
+        break;
+    case VK_DOWN:
+        if (m_tessFactor > MinTessFactor) m_tessFactor -= 1;
         break;
     }
 }
@@ -439,6 +446,7 @@ double RTGranularity::CalculateFrameStats(float* pTimeStep)
         wstringstream windowText;
         windowText << L"    type: "  << RayTracerTypeName;
         windowText << setprecision(2) << fixed << L"    fps: " << fps;
+        windowText << L"    tessellation factor: " << m_tessFactor;
         SetCustomWindowText(windowText.str().c_str());
     }
 
