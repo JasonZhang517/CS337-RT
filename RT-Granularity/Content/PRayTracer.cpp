@@ -30,8 +30,7 @@ struct RayGenConstants
 struct CBGlobal
 {
     XMFLOAT3X4 WorldITs[PRayTracer::NUM_MESH];
-    /*float      WorldIT[11];
-    uint32_t   FrameIndex;*/
+    XMFLOAT4X4 Worlds[PRayTracer::NUM_MESH];
 };
 
 struct CBMaterial
@@ -94,8 +93,8 @@ bool PRayTracer::Init(
             L"RayTracingOut"), false);
     }
 
-    m_cbRaytracing = ConstantBuffer::MakeUnique();
-    N_RETURN(m_cbRaytracing->Create(m_device.get(), sizeof(CBGlobal[FrameCount]), FrameCount,
+    m_cbGlobal = ConstantBuffer::MakeUnique();
+    N_RETURN(m_cbGlobal->Create(m_device.get(), sizeof(CBGlobal[FrameCount]), FrameCount,
         nullptr, MemoryType::UPLOAD, MemoryFlag::NONE, L"CBGlobal"), false);
 
     m_cbMaterials = ConstantBuffer::MakeUnique();
@@ -218,14 +217,6 @@ void PRayTracer::UpdateFrame(
         angle += 16.0f * timeStep * XM_PI / 180.0f;
         const auto rot = XMMatrixRotationY(angle);
 
-        {
-            static auto s_frameIndex = 0u;
-            const auto pCbData = reinterpret_cast<CBGlobal*>(m_cbRaytracing->Map(frameIndex));
-            const auto n = 256u;
-            for (auto i = 0u; i < NUM_MESH; ++i) XMStoreFloat3x4(&pCbData->WorldITs[i], i ? rot : XMMatrixIdentity());
-            s_frameIndex %= n;
-        }
-
         XMMATRIX worlds[NUM_MESH] =
         {
             XMMatrixScaling(10.0f, 0.5f, 10.0f) * XMMatrixTranslation(0.0f, -0.5f, 0.0f),
@@ -236,6 +227,13 @@ void PRayTracer::UpdateFrame(
         for (auto i = 0u; i < NUM_MESH; ++i)
         {
             XMStoreFloat4x4(&m_worlds[i], XMMatrixTranspose(worlds[i]));
+        }
+
+        const auto pCbGlobal = reinterpret_cast<CBGlobal*>(m_cbGlobal->Map(frameIndex));
+        for (auto i = 0u; i < NUM_MESH; ++i) 
+        {
+            XMStoreFloat3x4(&pCbGlobal->WorldITs[i], i ? rot : XMMatrixIdentity());
+            pCbGlobal->Worlds[i] = m_worlds[i];
         }
     }
 }
@@ -254,6 +252,7 @@ void PRayTracer::Render(
         m_descriptorTableCache->GetDescriptorPool(SAMPLER_POOL)
     };
     pCommandList->SetDescriptorPools(static_cast<uint32_t>(size(descriptorPools)), descriptorPools);
+
     raytrace(pCommandList, frameIndex);
     toneMap(pCommandList, rtv, numBarriers, pBarriers);
 }
@@ -671,7 +670,7 @@ void PRayTracer::raytrace(
     pCommandList->SetComputeDescriptorTable(INDEX_BUFFERS, m_srvTables[SRV_TABLE_IB]);
     pCommandList->SetComputeDescriptorTable(VERTEX_BUFFERS, m_srvTables[SRV_TABLE_VB]);
     pCommandList->SetComputeRootConstantBufferView(MATERIALS, m_cbMaterials.get());
-    pCommandList->SetComputeRootConstantBufferView(CONSTANTS, m_cbRaytracing.get(), m_cbRaytracing->GetCBVOffset(frameIndex));
+    pCommandList->SetComputeRootConstantBufferView(CONSTANTS, m_cbGlobal.get(), m_cbGlobal->GetCBVOffset(frameIndex));
     pCommandList->SetComputeDescriptorTable(ENV_TEXTURE, m_srvTables[SRV_TABLE_ENV]);
 
     // Fallback layer has no depth

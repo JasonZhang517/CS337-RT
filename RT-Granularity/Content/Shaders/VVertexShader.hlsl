@@ -7,20 +7,20 @@ struct VSIn
 
 struct VSOut
 {
-    float4 Pos   : SV_Position;
+    float4 Pos : SV_Position;
     float3 Color : Color;
 };
 
-cbuffer cbPerObject : register(b0)
+cbuffer cbGraphics : register(b0)
 {
     matrix   g_worldViewProj;
     float3x3 g_worldIT;
     float2   g_projBias;
 };
 
-cbuffer cbPerObjectInstance : register(b1)
+cbuffer cbInstanceIdx : register(b1)
 {
-    uint     g_instanceIdx;
+    uint g_instanceIdx;
 };
 
 StructuredBuffer<float3> g_vertexColors[] : register(t0);

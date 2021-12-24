@@ -28,6 +28,15 @@
     <Filter Include="Shaders\Renderer">
       <UniqueIdentifier>{80ef64d9-0d59-4edb-97fe-7f72cb8aafb0}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Shaders\PerPixel">
+      <UniqueIdentifier>{8bee3b67-d692-4674-be9d-9f52ccbba516}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders\PerVertex">
+      <UniqueIdentifier>{b712efa5-a077-4d7a-a23b-100ecb43b5a3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders\PerTessVertex">
+      <UniqueIdentifier>{6ceb4256-d3f4-4bdc-9b93-a22a7ccc7858}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Main.cpp">
@@ -133,23 +142,44 @@
     <FxCompile Include="Content\Shaders\VSDepth.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="Content\Shaders\VPixelShader.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="Content\Shaders\VVertexShader.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="Content\Shaders\DSSimple.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="Content\Shaders\HSSimple.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
     <FxCompile Include="Content\Shaders\HullShader.hlsl">
       <Filter>Shaders\Renderer</Filter>
     </FxCompile>
     <FxCompile Include="Content\Shaders\DomainShader.hlsl">
       <Filter>Shaders\Renderer</Filter>
+    </FxCompile>
+    <FxCompile Include="Content\Shaders\HSSimple.hlsl">
+      <Filter>Shaders\Renderer</Filter>
+    </FxCompile>
+    <FxCompile Include="Content\Shaders\DSSimple.hlsl">
+      <Filter>Shaders\Renderer</Filter>
+    </FxCompile>
+    <FxCompile Include="Content\Shaders\VSIdent.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Content\Shaders\PSEmpty.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Content\Shaders\VPixelShader.hlsl">
+      <Filter>Shaders\PerVertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Content\Shaders\VVertexShader.hlsl">
+      <Filter>Shaders\PerVertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Content\Shaders\TVDSTess.hlsl">
+      <Filter>Shaders\PerTessVertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Content\Shaders\TVDSDepth.hlsl">
+      <Filter>Shaders\PerTessVertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Content\Shaders\TVDSGraphics.hlsl">
+      <Filter>Shaders\PerTessVertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Content\Shaders\TVHullShader.hlsl">
+      <Filter>Shaders\PerTessVertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Content\Shaders\TVPixelShader.hlsl">
+      <Filter>Shaders\PerTessVertex</Filter>
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
@@ -163,16 +193,25 @@
     <None Include="Content\Shaders\Material.hlsli">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="Content\Shaders\RTCommon.hlsli">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Content\Shaders\TessCommon.hlsli">
+      <Filter>Shaders\PerTessVertex</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="Content\Shaders\RayTracing.hlsl">
       <Filter>Shaders\Renderer</Filter>
     </CustomBuild>
     <CustomBuild Include="Content\Shaders\PRayTracing.hlsl">
-      <Filter>Shaders</Filter>
+      <Filter>Shaders\PerPixel</Filter>
     </CustomBuild>
     <CustomBuild Include="Content\Shaders\VRayTracing.hlsl">
-      <Filter>Shaders</Filter>
+      <Filter>Shaders\PerVertex</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Content\Shaders\TVRayTracing.hlsl">
+      <Filter>Shaders\PerTessVertex</Filter>
     </CustomBuild>
   </ItemGroup>
 </Project>

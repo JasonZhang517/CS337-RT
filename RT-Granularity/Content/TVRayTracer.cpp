@@ -53,15 +53,47 @@ struct CBEnv
     XMFLOAT2 Viewport;
 };
 
+struct CBTessellation
+{
+    uint32_t InstanceIdx;
+    uint32_t TessFactor;
+    uint32_t MaxVertPerPatch;
+};
+
 const wchar_t* TVRayTracer::HitGroupNames[] = { L"hitGroupRadiance", L"hitGroupShadow" };
 const wchar_t* TVRayTracer::RaygenShaderName = L"raygenMain";
 const wchar_t* TVRayTracer::ClosestHitShaderNames[] = { L"closestHitRadiance", L"closestHitShadow" };
 const wchar_t* TVRayTracer::MissShaderNames[] = { L"missRadiance", L"missShadow" };
 
+// isPrime for n >= 2
+static inline bool isPrime(uint32_t n)
+{
+    for (auto i = 2u; i * i <= n; ++i)
+    {
+        if (n % i == 0) return false;
+    }
+    return true;
+}
+
+static inline uint32_t nextPrime(uint32_t n)
+{
+    while (!isPrime(n)) ++n;
+    return n;
+}
+
+static inline uint32_t calcMaxVertPerPatch(uint32_t tessFactor)
+{
+    uint32_t k = tessFactor / 2 + 1;
+    uint32_t from = (tessFactor & 1 ? 3 * k * k : 3 * k * (k - 1) + 1);
+    return nextPrime(from);
+};
+
 TVRayTracer::TVRayTracer(const RayTracing::Device::sptr& device) :
     m_device(device),
-    m_instances()
+    m_instances(),
+    m_tessFactor(2)
 {
+    m_maxVertPerPatch = calcMaxVertPerPatch(m_tessFactor);
     m_shaderPool = ShaderPool::MakeUnique();
     m_rayTracingPipelineCache = RayTracing::PipelineCache::MakeUnique(device.get());
     m_graphicsPipelineCache = Graphics::PipelineCache::MakeUnique(device.get());
@@ -84,7 +116,7 @@ bool TVRayTracer::Init(
     const char*              fileName,
     const wchar_t*           envFileName,
     Format                   rtFormat,
-    const XMFLOAT4& posScale)
+    const XMFLOAT4&          posScale)
 {
     m_viewport = XMUINT2(width, height);
     m_posScale = posScale;
@@ -107,18 +139,29 @@ bool TVRayTracer::Init(
             L"GraphicsOut"), false);
     }
 
-    // Create vertex color buffer
+    for (auto i = 0u; i < NUM_MESH; ++i)
     {
-        for (auto i = 0u; i < NUM_MESH; ++i)
-        {
-            auto& vertexColor = m_vertexColors[i];
-            vertexColor = StructuredBuffer::MakeUnique();
-            N_RETURN(vertexColor->Create(m_device.get(), m_numVerts[i], sizeof(XMFLOAT3), ResourceFlag::ALLOW_UNORDERED_ACCESS), false);
-        }
+        m_numMaxTessVerts[i] = m_numIndices[i] * m_maxVertPerPatch / 3u;
     }
 
-    m_cbRaytracing = ConstantBuffer::MakeUnique();
-    N_RETURN(m_cbRaytracing->Create(m_device.get(), sizeof(CBGlobal[FrameCount]), FrameCount,
+    // Create tessellated vertex color buffer
+    for (auto i = 0u; i < NUM_MESH; ++i)
+    {
+        auto& tessColor = m_tessColors[i];
+        tessColor = StructuredBuffer::MakeUnique();
+        N_RETURN(tessColor->Create(m_device.get(), m_numMaxTessVerts[i], sizeof(XMFLOAT3), ResourceFlag::ALLOW_UNORDERED_ACCESS), false);
+    }
+
+    // Create tessellation domains buffer
+    for (auto i = 0u; i < NUM_MESH; ++i)
+    {
+        auto& tessDom = m_tessDoms[i];
+        tessDom = StructuredBuffer::MakeUnique();
+        N_RETURN(tessDom->Create(m_device.get(), m_numMaxTessVerts[i], sizeof(XMFLOAT2), ResourceFlag::ALLOW_UNORDERED_ACCESS), false);
+    }
+
+    m_cbGlobal = ConstantBuffer::MakeUnique();
+    N_RETURN(m_cbGlobal->Create(m_device.get(), sizeof(CBGlobal[FrameCount]), FrameCount,
         nullptr, MemoryType::UPLOAD, MemoryFlag::NONE, L"CBGlobal"), false);
 
     m_cbEnv = ConstantBuffer::MakeUnique();
@@ -155,7 +198,7 @@ bool TVRayTracer::Init(
     }
 
     const auto dsFormat = Format::D24_UNORM_S8_UINT;
-    m_depth = DepthStencil::MakeShared();
+    m_depth = DepthStencil::MakeUnique();
     N_RETURN(m_depth->Create(m_device.get(), width, height, dsFormat, ResourceFlag::NONE,
         1, 1, 1, 1.0f, 0, false, MemoryFlag::NONE, L"Depth"), false);
 
@@ -270,18 +313,24 @@ void TVRayTracer::UpdateFrame(
             XMMatrixTranslation(m_posScale.x, m_posScale.y, m_posScale.z)
         };
 
-        const auto pCbRT = reinterpret_cast<CBGlobal*>(m_cbRaytracing->Map(frameIndex));
+        for (auto i = 0u; i < NUM_MESH; ++i)
+        {
+            XMStoreFloat4x4(&m_worlds[i], XMMatrixTranspose(worlds[i]));
+        }
+
+        const auto pCbGlobal = reinterpret_cast<CBGlobal*>(m_cbGlobal->Map(frameIndex));
+        for (auto i = 0u; i < NUM_MESH; ++i)
+        {
+            XMStoreFloat3x4(&pCbGlobal->WorldITs[i], i ? rot : XMMatrixIdentity());
+            pCbGlobal->Worlds[i] = m_worlds[i];
+        }
 
         for (auto i = 0u; i < NUM_MESH; ++i)
         {
             const auto pCbGraphics = reinterpret_cast<CBGraphics*>(m_cbGraphics[i]->Map(frameIndex));
             pCbGraphics->ProjBias = projBias;
-            XMStoreFloat4x4(&m_worlds[i], XMMatrixTranspose(worlds[i]));
             XMStoreFloat4x4(&pCbGraphics->WorldViewProj, XMMatrixTranspose(worlds[i] * viewProj));
             XMStoreFloat3x4(&pCbGraphics->WorldIT, i ? rot : XMMatrixIdentity());
-
-            XMStoreFloat3x4(&pCbRT->WorldITs[i], i ? rot : XMMatrixIdentity());
-            pCbRT->Worlds[i] = m_worlds[i];
         }
     }
 }
@@ -289,9 +338,9 @@ void TVRayTracer::UpdateFrame(
 void TVRayTracer::Render(
     const RayTracing::CommandList* pCommandList,
     uint8_t                        frameIndex,
-    const Descriptor& rtv,
+    const Descriptor&              rtv,
     uint32_t                       numBarriers,
-    ResourceBarrier* pBarriers)
+    ResourceBarrier*               pBarriers)
 {
     // Bind the heaps
     const DescriptorPool descriptorPools[] =
@@ -303,6 +352,7 @@ void TVRayTracer::Render(
 
     zPrepass(pCommandList, frameIndex);
     envPrepass(pCommandList, frameIndex);
+    tessellate(pCommandList, frameIndex);
     raytrace(pCommandList, frameIndex);
     rasterize(pCommandList, frameIndex);
     toneMap(pCommandList, rtv, numBarriers, pBarriers);
@@ -369,41 +419,47 @@ bool TVRayTracer::createGroundMesh(
     RayTracing::CommandList* pCommandList,
     vector<Resource::uptr>& uploaders)
 {
+    const uint32_t N = 100;
     // Vertex buffer
     {
         // Cube vertices positions and corresponding triangle normals.
-        Vertex vertices[] =
-        {
-            { XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-            { XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-            { XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-            { XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-
-            { XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
-            { XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
-            { XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
-            { XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
-
-            { XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
-            { XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
-            { XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
-            { XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
-
-            { XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-            { XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-            { XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-            { XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-
-            { XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
-            { XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
-            { XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
-            { XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
-
-            { XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-            { XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-            { XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-            { XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-        };
+        static Vertex vertices[N * N * 6];
+        for (auto i = 0u; i < N; ++i)
+            for (auto j = 0u; j < N; ++j)
+                vertices[N * i + j] = {
+                    XMFLOAT3(-1.0f + 2.0f * j / (N - 1), 1.0f, 1.0f - 2.0f * i / (N - 1)),
+                    XMFLOAT3(0.0f, 1.0f, 0.0f)
+                };
+        for (auto i = 0u; i < N; ++i)
+            for (auto j = 0u; j < N; ++j)
+                vertices[N * N + N * i + j] = {
+                    XMFLOAT3(-1.0f + 2.0f * j / (N - 1), -1.0f, 1.0f - 2.0f * i / (N - 1)),
+                    XMFLOAT3(0.0f, -1.0f, 0.0f)
+                };
+        for (auto i = 0u; i < N; ++i)
+            for (auto j = 0u; j < N; ++j)
+                vertices[2 * N * N + N * i + j] = {
+                    XMFLOAT3(-1.0f, -1.0f + 2.0f * j / (N - 1), 1.0 - 2.0f * i / (N - 1)),
+                    XMFLOAT3(-1.0f, 0.0f, 0.0f)
+                };
+        for (auto i = 0u; i < N; ++i)
+            for (auto j = 0u; j < N; ++j)
+                vertices[3 * N * N + N * i + j] = {
+                    XMFLOAT3(1.0f, -1.0f + 2.0f * j / (N - 1), 1.0f - 2.0f * i / (N - 1)),
+                    XMFLOAT3(1.0f, 0.0f, 0.0f)
+                };
+        for (auto i = 0u; i < N; ++i)
+            for (auto j = 0u; j < N; ++j)
+                vertices[4 * N * N + N * i + j] = {
+                    XMFLOAT3(-1.0f + 2.0f * j / (N - 1), 1.0f - 2.0f * i / (N - 1), -1.0f),
+                    XMFLOAT3(0.0f, 0.0f, -1.0f)
+                };
+        for (auto i = 0u; i < N; ++i)
+            for (auto j = 0u; j < N; ++j)
+                vertices[5 * N * N + N * i + j] = {
+                    XMFLOAT3(-1.0f + 2.0f * j / (N - 1), 1.0f - 2.0f * i / (N - 1), 1.0f),
+                    XMFLOAT3(0.0f, 0.0f,1.0f)
+                };
 
         auto& vertexBuffer = m_vertexBuffers[GROUND];
         vertexBuffer = VertexBuffer::MakeUnique();
@@ -421,28 +477,29 @@ bool TVRayTracer::createGroundMesh(
     // Index Buffer
     {
         // Cube indices.
-        uint32_t indices[] =
+        static uint32_t indices[6][N - 1][N - 1][2][3];
+        for (auto s = 0u; s < 6u; s += 2)
         {
-            3,1,0,
-            2,1,3,
-
-            6,4,5,
-            7,4,6,
-
-            11,9,8,
-            10,9,11,
-
-            14,12,13,
-            15,12,14,
-
-            19,17,16,
-            18,17,19,
-
-            22,20,21,
-            23,20,22
-        };
-
-        auto numIndices = static_cast<uint32_t>(size(indices));
+            for (auto i = 0u; i < N - 1; ++i)
+            {
+                for (auto j = 0u; j < N - 1; ++j)
+                {
+                    indices[s][i][j][0][0] = i * N + j + s * N * N;
+                    indices[s][i][j][0][1] = i * N + j + 1 + s * N * N;
+                    indices[s][i][j][0][2] = (i + 1) * N + j + 1 + s * N * N;
+                    indices[s][i][j][1][0] = i * N + j + s * N * N;
+                    indices[s][i][j][1][1] = (i + 1) * N + j + 1 + s * N * N;
+                    indices[s][i][j][1][2] = (i + 1) * N + j + s * N * N;
+                    indices[s + 1][i][j][0][0] = i * N + j + (s + 1) * N * N;
+                    indices[s + 1][i][j][0][1] = (i + 1) * N + j + 1 + (s + 1) * N * N;
+                    indices[s + 1][i][j][0][2] = i * N + j + 1 + (s + 1) * N * N;
+                    indices[s + 1][i][j][1][0] = i * N + j + (s + 1) * N * N;
+                    indices[s + 1][i][j][1][1] = (i + 1) * N + j + (s + 1) * N * N;
+                    indices[s + 1][i][j][1][2] = (i + 1) * N + j + 1 + (s + 1) * N * N;
+                }
+            }
+        }
+        auto numIndices = 36 * (N - 1) * (N - 1);
         m_numIndices[GROUND] = numIndices;
 
         auto& indexBuffer = m_indexBuffers[GROUND];
@@ -478,7 +535,9 @@ bool TVRayTracer::createPipelineLayouts()
     {
         // Get pipeline layout
         const auto pipelineLayout = Util::PipelineLayout::MakeUnique();
-        pipelineLayout->SetRootCBV(0, 0, 0, Shader::Stage::VS);
+        // pipelineLayout->SetRootCBV(0, 0, 0, Shader::Stage::VS);
+        pipelineLayout->SetConstants(0, SizeOfInUint32(CBTessellation), 0);
+        pipelineLayout->SetRootCBV(1, 1, 0, Shader::Stage::DS);
         X_RETURN(m_pipelineLayouts[Z_PRE_LAYOUT], pipelineLayout->GetPipelineLayout(m_pipelineLayoutCache.get(),
             PipelineLayoutFlag::ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT, L"ZPrepassLayout"), false);
     }
@@ -494,6 +553,14 @@ bool TVRayTracer::createPipelineLayouts()
         X_RETURN(m_pipelineLayouts[ENV_PRE_LAYOUT], pipelineLayout->GetPipelineLayout(m_pipelineLayoutCache.get(), PipelineLayoutFlag::NONE, L"EnvPrepassPipelineLayout"), false);
     }
 
+    // Tessellation pass pipeline layout
+    {
+        const auto pipelineLayout = Util::PipelineLayout::MakeUnique();
+        pipelineLayout->SetConstants(0, SizeOfInUint32(CBTessellation), 0);
+        pipelineLayout->SetRange(1, DescriptorType::UAV, NUM_MESH, 0);
+        X_RETURN(m_pipelineLayouts[TESSELLATION_LAYOUT], pipelineLayout->GetPipelineLayout(m_pipelineLayoutCache.get(), PipelineLayoutFlag::ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT, L"TessellationPipelineLayout"), false);
+    }
+
     // Global pipeline layout
     // This is a pipeline layout that is shared across all raytracing shaders invoked during a DispatchRays() call.
     {
@@ -505,8 +572,8 @@ bool TVRayTracer::createPipelineLayouts()
         pipelineLayout->SetRange(VERTEX_BUFFERS, DescriptorType::SRV, NUM_MESH, 0, 2);
         pipelineLayout->SetRootCBV(MATERIALS, 0);
         pipelineLayout->SetRootCBV(CONSTANTS, 1);
-        // pipelineLayout->SetConstants(VERTEX_NUMBER, SizeOfInUint32(m_numVerts), 2);
-        pipelineLayout->SetConstants(INSTANCE_IDX, SizeOfInUint32(uint32_t), 2);
+        pipelineLayout->SetConstants(TESS_CONSTS, SizeOfInUint32(CBTessellation), 3);
+        pipelineLayout->SetRange(TESS_DOMS, DescriptorType::SRV, NUM_MESH, 2);
         pipelineLayout->SetRange(ENV_TEXTURE, DescriptorType::SRV, 1, 1);
         X_RETURN(m_pipelineLayouts[RT_GLOBAL_LAYOUT], pipelineLayout->GetPipelineLayout(
             m_device.get(), m_pipelineLayoutCache.get(), PipelineLayoutFlag::NONE,
@@ -517,7 +584,7 @@ bool TVRayTracer::createPipelineLayouts()
     // This is a pipeline layout that enables a shader to have unique arguments that come from shader tables.
     {
         const auto pipelineLayout = RayTracing::PipelineLayout::MakeUnique();
-        pipelineLayout->SetConstants(0, SizeOfInUint32(RayGenConstants), 3);
+        pipelineLayout->SetConstants(0, SizeOfInUint32(RayGenConstants), 2);
         X_RETURN(m_pipelineLayouts[RAY_GEN_LAYOUT], pipelineLayout->GetPipelineLayout(
             m_device.get(), m_pipelineLayoutCache.get(), PipelineLayoutFlag::LOCAL_PIPELINE_LAYOUT,
             L"RayTracerRayGenPipelineLayout"), false);
@@ -527,7 +594,7 @@ bool TVRayTracer::createPipelineLayouts()
     // This is a pipeline layout that enables a shader to have unique arguments that come from shader tables.
     {
         const auto pipelineLayout = RayTracing::PipelineLayout::MakeUnique();
-        pipelineLayout->SetConstants(0, SizeOfInUint32(RayGenConstants), 3);
+        pipelineLayout->SetConstants(0, SizeOfInUint32(RayGenConstants), 2);
         X_RETURN(m_pipelineLayouts[HIT_RADIANCE_LAYOUT], pipelineLayout->GetPipelineLayout(
             m_device.get(), m_pipelineLayoutCache.get(), PipelineLayoutFlag::LOCAL_PIPELINE_LAYOUT,
             L"RayTracerHitRadiancePipelineLayout"), false);
@@ -536,14 +603,12 @@ bool TVRayTracer::createPipelineLayouts()
     // Pipeline layout for graphics pass
     {
         const auto pipelineLayout = Util::PipelineLayout::MakeUnique();
-        pipelineLayout->SetRootCBV(0, 0, 0, Shader::Stage::VS);
-        pipelineLayout->SetConstants(1, SizeOfInUint32(uint32_t), 1, 0, Shader::Stage::VS);
-        pipelineLayout->SetRange(2, DescriptorType::SRV, 2, 0, 0);
-        pipelineLayout->SetRange(3, DescriptorType::UAV, 1, 0, 0);
-        pipelineLayout->SetRootCBV(4, 0, 0, Shader::Stage::PS);
-        auto pipelineLayoutFlags = PipelineLayoutFlag::ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+        pipelineLayout->SetConstants(0, SizeOfInUint32(CBTessellation), 0);
+        pipelineLayout->SetRootCBV(1, 1, 0, Shader::Stage::DS);
+        pipelineLayout->SetRange(2, DescriptorType::SRV, NUM_MESH, 0);
+        pipelineLayout->SetRange(3, DescriptorType::UAV, 1, 0);
 
-        X_RETURN(m_pipelineLayouts[GRAPHICS_LAYOUT], pipelineLayout->GetPipelineLayout(m_pipelineLayoutCache.get(), pipelineLayoutFlags, L"GraphicsPipelineLayout"), false);
+        X_RETURN(m_pipelineLayouts[GRAPHICS_LAYOUT], pipelineLayout->GetPipelineLayout(m_pipelineLayoutCache.get(), PipelineLayoutFlag::ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT, L"GraphicsPipelineLayout"), false);
     }
 
     // Pipeline layout for tone mapping
@@ -559,21 +624,27 @@ bool TVRayTracer::createPipelineLayouts()
 
 bool TVRayTracer::createPipelines(Format rtFormat, Format dsFormat)
 {
-    N_RETURN(m_shaderPool->CreateShader(Shader::Stage::VS, ShaderIndex::VS_DEPTH, L"VSDepth.cso"), false);
+    N_RETURN(m_shaderPool->CreateShader(Shader::Stage::VS, ShaderIndex::VS_IDENT, L"VSIdent.cso"), false);
     N_RETURN(m_shaderPool->CreateShader(Shader::Stage::VS, ShaderIndex::VS_SQUAD, L"VSScreenQuad.cso"), false);
     N_RETURN(m_shaderPool->CreateShader(Shader::Stage::PS, ShaderIndex::PS_ENV, L"PSEnv.cso"), false);
-    N_RETURN(m_shaderPool->CreateShader(Shader::Stage::CS, ShaderIndex::CS_RT, L"VRayTracing.cso"), false);
-    N_RETURN(m_shaderPool->CreateShader(Shader::Stage::VS, ShaderIndex::VS_GRAPHICS, L"VVertexShader.cso"), false);
-    N_RETURN(m_shaderPool->CreateShader(Shader::Stage::PS, ShaderIndex::PS_GRAPHICS, L"VPixelShader.cso"), false);
+    N_RETURN(m_shaderPool->CreateShader(Shader::Stage::CS, ShaderIndex::CS_RT, L"TVRayTracing.cso"), false);
+    N_RETURN(m_shaderPool->CreateShader(Shader::Stage::HS, ShaderIndex::HS_GRAPHICS, L"TVHullShader.cso"), false);
+    N_RETURN(m_shaderPool->CreateShader(Shader::Stage::DS, ShaderIndex::DS_DEPTH, L"TVDSDepth.cso"), false);
+    N_RETURN(m_shaderPool->CreateShader(Shader::Stage::DS, ShaderIndex::DS_TESS, L"TVDSTess.cso"), false);
+    N_RETURN(m_shaderPool->CreateShader(Shader::Stage::DS, ShaderIndex::DS_GRAPHICS, L"TVDSGraphics.cso"), false);
+    N_RETURN(m_shaderPool->CreateShader(Shader::Stage::PS, ShaderIndex::PS_EMPTY, L"PSEmpty.cso"), false);
+    N_RETURN(m_shaderPool->CreateShader(Shader::Stage::PS, ShaderIndex::PS_GRAPHICS, L"TVPixelShader.cso"), false);
     N_RETURN(m_shaderPool->CreateShader(Shader::Stage::PS, ShaderIndex::PS_TONEMAP, L"PSToneMap.cso"), false);
 
     // Z prepass
     {
         const auto state = Graphics::State::MakeUnique();
         state->SetPipelineLayout(m_pipelineLayouts[Z_PRE_LAYOUT]);
-        state->SetShader(Shader::Stage::VS, m_shaderPool->GetShader(Shader::Stage::VS, ShaderIndex::VS_DEPTH));
+        state->SetShader(Shader::Stage::VS, m_shaderPool->GetShader(Shader::Stage::VS, ShaderIndex::VS_IDENT));
+        state->SetShader(Shader::Stage::HS, m_shaderPool->GetShader(Shader::Stage::HS, ShaderIndex::HS_GRAPHICS));
+        state->SetShader(Shader::Stage::DS, m_shaderPool->GetShader(Shader::Stage::DS, ShaderIndex::DS_DEPTH));
         state->IASetInputLayout(m_pInputLayout);
-        state->IASetPrimitiveTopologyType(PrimitiveTopologyType::TRIANGLE);
+        state->IASetPrimitiveTopologyType(PrimitiveTopologyType::PATCH);
         state->OMSetDSVFormat(dsFormat);
         X_RETURN(m_pipelines[Z_PREPASS], state->GetPipeline(m_graphicsPipelineCache.get(), L"ZPrepass"), false);
     }
@@ -587,6 +658,20 @@ bool TVRayTracer::createPipelines(Format rtFormat, Format dsFormat)
         state->DSSetState(Graphics::DEPTH_STENCIL_NONE, m_graphicsPipelineCache.get());
         state->IASetPrimitiveTopologyType(PrimitiveTopologyType::TRIANGLE);
         X_RETURN(m_pipelines[ENV_PREPASS], state->GetPipeline(m_graphicsPipelineCache.get(), L"EnvPrepass"), false);
+    }
+
+    // Tessellation pass
+    {
+        const auto state = Graphics::State::MakeUnique();
+        state->SetPipelineLayout(m_pipelineLayouts[TESSELLATION_LAYOUT]);
+        state->SetShader(Shader::Stage::VS, m_shaderPool->GetShader(Shader::Stage::VS, ShaderIndex::VS_IDENT));
+        state->SetShader(Shader::Stage::HS, m_shaderPool->GetShader(Shader::Stage::HS, ShaderIndex::HS_GRAPHICS));
+        state->SetShader(Shader::Stage::DS, m_shaderPool->GetShader(Shader::Stage::DS, ShaderIndex::DS_TESS));
+        state->DSSetState(Graphics::DEPTH_STENCIL_NONE, m_graphicsPipelineCache.get());
+        state->IASetInputLayout(m_pInputLayout);
+        state->IASetPrimitiveTopologyType(PrimitiveTopologyType::PATCH);
+        state->OMSetNumRenderTargets(0);
+        X_RETURN(m_pipelines[TESSELLATION], state->GetPipeline(m_graphicsPipelineCache.get(), L"TessellationPass"), false);
     }
 
     // Ray tracing pass
@@ -609,11 +694,14 @@ bool TVRayTracer::createPipelines(Format rtFormat, Format dsFormat)
     {
         const auto state = Graphics::State::MakeUnique();
         state->SetPipelineLayout(m_pipelineLayouts[GRAPHICS_LAYOUT]);
-        state->SetShader(Shader::Stage::VS, m_shaderPool->GetShader(Shader::Stage::VS, ShaderIndex::VS_GRAPHICS));
+        state->SetShader(Shader::Stage::VS, m_shaderPool->GetShader(Shader::Stage::VS, ShaderIndex::VS_IDENT));
+        state->SetShader(Shader::Stage::HS, m_shaderPool->GetShader(Shader::Stage::HS, ShaderIndex::HS_GRAPHICS));
+        state->SetShader(Shader::Stage::DS, m_shaderPool->GetShader(Shader::Stage::DS, ShaderIndex::DS_GRAPHICS));
         state->SetShader(Shader::Stage::PS, m_shaderPool->GetShader(Shader::Stage::PS, ShaderIndex::PS_GRAPHICS));
-        state->DSSetState(Graphics::DepthStencilPreset::DEPTH_READ_EQUAL, m_graphicsPipelineCache.get());
+        state->DSSetState(Graphics::DEPTH_READ_EQUAL, m_graphicsPipelineCache.get());
         state->IASetInputLayout(m_pInputLayout);
-        state->IASetPrimitiveTopologyType(PrimitiveTopologyType::TRIANGLE);
+        state->IASetPrimitiveTopologyType(PrimitiveTopologyType::PATCH);
+        state->OMSetDSVFormat(m_depth->GetFormat());
         state->OMSetNumRenderTargets(0);
         X_RETURN(m_pipelines[GRAPHICS], state->GetPipeline(m_graphicsPipelineCache.get(), L"GraphicsPass"), false);
     }
@@ -643,10 +731,19 @@ bool TVRayTracer::createDescriptorTables()
         X_RETURN(m_uavTables[UAV_TABLE_OUTPUT], descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get()), false);
     }
 
-    // Vertex color UAV
+    // Tessellation domains UAV
     {
         Descriptor descriptors[NUM_MESH];
-        for (auto i = 0u; i < NUM_MESH; ++i) descriptors[i] = m_vertexColors[i]->GetUAV();
+        for (auto i = 0u; i < NUM_MESH; ++i) descriptors[i] = m_tessDoms[i]->GetUAV();
+        const auto descriptorTable = Util::DescriptorTable::MakeUnique();
+        descriptorTable->SetDescriptors(0, static_cast<uint32_t>(size(descriptors)), descriptors);
+        X_RETURN(m_uavTables[UAV_TABLE_TESSDOMS], descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get()), false);
+    }
+
+    // Tessellated vertex color UAV
+    {
+        Descriptor descriptors[NUM_MESH];
+        for (auto i = 0u; i < NUM_MESH; ++i) descriptors[i] = m_tessColors[i]->GetUAV();
         const auto descriptorTable = Util::DescriptorTable::MakeUnique();
         descriptorTable->SetDescriptors(0, static_cast<uint32_t>(size(descriptors)), descriptors);
         X_RETURN(m_uavTables[UAV_TABLE_RT], descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get()), false);
@@ -677,13 +774,22 @@ bool TVRayTracer::createDescriptorTables()
         X_RETURN(m_srvTables[SRV_TABLE_ENV], descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get()), false);
     }
 
-    // Vertex color SRV
+    // Tessellated vertex color SRV
     {
         Descriptor descriptors[NUM_MESH];
-        for (auto i = 0u; i < NUM_MESH; ++i) descriptors[i] = m_vertexColors[i]->GetSRV();
+        for (auto i = 0u; i < NUM_MESH; ++i) descriptors[i] = m_tessColors[i]->GetSRV();
         const auto descriptorTable = Util::DescriptorTable::MakeUnique();
         descriptorTable->SetDescriptors(0, static_cast<uint32_t>(size(descriptors)), descriptors);
         X_RETURN(m_srvTables[SRV_TABLE_VCOLOR], descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get()), false)
+    }
+
+    // Tessellation domain SRV
+    {
+        Descriptor descriptors[NUM_MESH];
+        for (auto i = 0u; i < NUM_MESH; ++i) descriptors[i] = m_tessDoms[i]->GetSRV();
+        const auto descriptorTable = Util::DescriptorTable::MakeUnique();
+        descriptorTable->SetDescriptors(0, static_cast<uint32_t>(size(descriptors)), descriptors);
+        X_RETURN(m_srvTables[SRV_TABLE_TESSDOMS], descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get()), false)
     }
 
     // Output SRV for tone mapping
@@ -699,12 +805,6 @@ bool TVRayTracer::createDescriptorTables()
         const auto samplerAnisoWrap = SamplerPreset::ANISOTROPIC_WRAP;
         descriptorTable->SetSamplers(0, 1, &samplerAnisoWrap, m_descriptorTableCache.get());
         X_RETURN(m_samplerTable, descriptorTable->GetSamplerTable(m_descriptorTableCache.get()), false);
-    }
-
-    // Depth buffer
-    {
-        const auto descriptorTable = Util::DescriptorTable::MakeUnique();
-        m_framebuffer = descriptorTable->GetFramebuffer(m_descriptorTableCache.get(), &m_depth->GetDSV());
     }
 
     return true;
@@ -819,7 +919,7 @@ void TVRayTracer::zPrepass(
     const auto numBarriers = m_depth->SetBarrier(&barrier, ResourceState::DEPTH_WRITE);
     pCommandList->Barrier(numBarriers, &barrier);
 
-    //Clear depth
+    // Clear depth
     pCommandList->OMSetRenderTargets(0, nullptr, &m_depth->GetDSV());
     pCommandList->ClearDepthStencilView(m_depth->GetDSV(), ClearFlag::DEPTH, 1.0f);
 
@@ -834,12 +934,15 @@ void TVRayTracer::zPrepass(
     pCommandList->RSSetScissorRects(1, &scissorRect);
 
     // Record commands.
-    pCommandList->IASetPrimitiveTopology(PrimitiveTopology::TRIANGLELIST);
+    pCommandList->IASetPrimitiveTopology(PrimitiveTopology::CONTROL_POINT3_PATCHLIST);
 
     for (auto i = 0u; i < NUM_MESH; ++i)
     {
         // Set descriptor tables
-        pCommandList->SetGraphicsRootConstantBufferView(0, m_cbGraphics[i].get(), m_cbGraphics[i]->GetCBVOffset(frameIndex));
+        // pCommandList->SetGraphicsRootConstantBufferView(0, m_cbGraphics[i].get(), m_cbGraphics[i]->GetCBVOffset(frameIndex));
+        CBTessellation tessConsts = { i, m_tessFactor, m_maxVertPerPatch };
+        pCommandList->SetGraphics32BitConstants(0, SizeOfInUint32(tessConsts), &tessConsts);
+        pCommandList->SetGraphicsRootConstantBufferView(1, m_cbGraphics[i].get(), m_cbGraphics[i]->GetCBVOffset(frameIndex));
         pCommandList->IASetVertexBuffers(0, 1, &m_vertexBuffers[i]->GetVBV());
         pCommandList->IASetIndexBuffer(m_indexBuffers[i]->GetIBV());
         pCommandList->DrawIndexed(m_numIndices[i], 1, 0, 0, 0);
@@ -850,6 +953,7 @@ void TVRayTracer::envPrepass(
     const XUSG::CommandList* pCommandList,
     uint8_t                  frameIndex)
 {
+    pCommandList->OMSetRenderTargets(0, nullptr);
     pCommandList->SetGraphicsPipelineLayout(m_pipelineLayouts[ENV_PRE_LAYOUT]);
     pCommandList->SetPipelineState(m_pipelines[ENV_PREPASS]);
 
@@ -867,67 +971,102 @@ void TVRayTracer::envPrepass(
     pCommandList->Draw(3, 1, 0, 0);
 }
 
-void TVRayTracer::raytrace(
-    const RayTracing::CommandList* pCommandList,
-    uint8_t                        frameIndex)
-{
-    // Bind the acceleration structure and dispatch rays.
-    pCommandList->SetComputePipelineLayout(m_pipelineLayouts[RT_GLOBAL_LAYOUT]);
-    pCommandList->SetComputeDescriptorTable(VERTEX_COLOR, m_uavTables[UAV_TABLE_RT]);
-    pCommandList->SetTopLevelAccelerationStructure(ACCELERATION_STRUCTURE, m_topLevelAS.get());
-    pCommandList->SetComputeDescriptorTable(SAMPLER, m_samplerTable);
-    pCommandList->SetComputeDescriptorTable(INDEX_BUFFERS, m_srvTables[SRV_TABLE_IB]);
-    pCommandList->SetComputeDescriptorTable(VERTEX_BUFFERS, m_srvTables[SRV_TABLE_VB]);
-    pCommandList->SetComputeRootConstantBufferView(MATERIALS, m_cbMaterials.get());
-    pCommandList->SetComputeRootConstantBufferView(CONSTANTS, m_cbRaytracing.get(), m_cbRaytracing->GetCBVOffset(frameIndex));
-    pCommandList->SetComputeDescriptorTable(ENV_TEXTURE, m_srvTables[SRV_TABLE_ENV]);
-
-    for (auto i = 0u; i < NUM_MESH; ++i)
-    {
-        pCommandList->SetCompute32BitConstant(INSTANCE_IDX, i);
-        // Fallback layer has no depth
-        pCommandList->DispatchRays(m_pipelines[RAY_TRACING], m_numVerts[i], 1, 1,
-            m_hitGroupShaderTable.get(), m_missShaderTable.get(), m_rayGenShaderTables[frameIndex].get());
-    }
-
-    ResourceBarrier barriers[2];
-    uint32_t numBarriers = 0;
-    for (auto i = 0u; i < NUM_MESH; ++i)
-    {
-        numBarriers = m_vertexColors[i]->SetBarrier(barriers, ResourceState::UNORDERED_ACCESS, numBarriers);
-    }
-    pCommandList->Barrier(numBarriers, barriers);
-}
-
-void TVRayTracer::rasterize(
+void TVRayTracer::tessellate(
     const XUSG::CommandList* pCommandList,
     uint8_t                  frameIndex)
-{
-    ResourceBarrier barrier;
-    const auto depthState = ResourceState::DEPTH_READ | ResourceState::NON_PIXEL_SHADER_RESOURCE;
-    const auto numBarriers = m_depth->SetBarrier(&barrier, depthState);
-    pCommandList->Barrier(numBarriers, &barrier);
-
-    pCommandList->OMSetFramebuffer(m_framebuffer);
-
-    pCommandList->SetGraphicsPipelineLayout(m_pipelineLayouts[GRAPHICS_LAYOUT]);
-    pCommandList->SetPipelineState(m_pipelines[GRAPHICS]);
-
-    pCommandList->SetGraphicsDescriptorTable(2, m_srvTables[SRV_TABLE_VCOLOR]);
-    pCommandList->SetGraphicsDescriptorTable(3, m_uavTables[UAV_TABLE_OUTPUT]);
-    pCommandList->SetGraphicsRootConstantBufferView(4, m_cbEnv.get(), m_cbEnv->GetCBVOffset(frameIndex));
+{    
+    pCommandList->OMSetRenderTargets(0, nullptr);
+    pCommandList->SetGraphicsPipelineLayout(m_pipelineLayouts[TESSELLATION_LAYOUT]);
+    pCommandList->SetPipelineState(m_pipelines[TESSELLATION]);
+    
+    pCommandList->SetGraphicsDescriptorTable(1, m_uavTables[UAV_TABLE_TESSDOMS]);
 
     Viewport viewport(0.0f, 0.0f, static_cast<float>(m_viewport.x), static_cast<float>(m_viewport.y));
     RectRange scissorRect(0, 0, m_viewport.x, m_viewport.y);
     pCommandList->RSSetViewports(1, &viewport);
     pCommandList->RSSetScissorRects(1, &scissorRect);
 
-    pCommandList->IASetPrimitiveTopology(PrimitiveTopology::TRIANGLELIST);
+    pCommandList->IASetPrimitiveTopology(PrimitiveTopology::CONTROL_POINT3_PATCHLIST);
 
     for (auto i = 0u; i < NUM_MESH; ++i)
     {
-        pCommandList->SetGraphicsRootConstantBufferView(0, m_cbGraphics[i].get(), m_cbGraphics[i]->GetCBVOffset(frameIndex));
-        pCommandList->SetGraphics32BitConstant(1, i);
+        CBTessellation tessConsts = { i, m_tessFactor, m_maxVertPerPatch };
+        pCommandList->SetGraphics32BitConstants(0, SizeOfInUint32(tessConsts), &tessConsts);
+        pCommandList->IASetVertexBuffers(0, 1, &m_vertexBuffers[i]->GetVBV());
+        pCommandList->IASetIndexBuffer(m_indexBuffers[i]->GetIBV());
+        pCommandList->DrawIndexed(m_numIndices[i], 1, 0, 0, 0);
+    }
+}
+
+void TVRayTracer::raytrace(
+    const RayTracing::CommandList* pCommandList,
+    uint8_t                        frameIndex)
+{
+    ResourceBarrier barriers[2];
+    auto numBarriers = 0u;
+    for (auto i = 0u; i < NUM_MESH; ++i)
+    {
+        numBarriers = m_tessDoms[i]->SetBarrier(barriers, ResourceState::UNORDERED_ACCESS, numBarriers);
+    }
+    pCommandList->Barrier(numBarriers, barriers);
+
+    // Bind the acceleration structure and dispatch rays.
+    pCommandList->SetComputePipelineLayout(m_pipelineLayouts[RT_GLOBAL_LAYOUT]);
+    pCommandList->SetComputeRootConstantBufferView(MATERIALS, m_cbMaterials.get());
+    pCommandList->SetComputeRootConstantBufferView(CONSTANTS, m_cbGlobal.get(), m_cbGlobal->GetCBVOffset(frameIndex));
+    pCommandList->SetTopLevelAccelerationStructure(ACCELERATION_STRUCTURE, m_topLevelAS.get());
+    pCommandList->SetComputeDescriptorTable(INDEX_BUFFERS, m_srvTables[SRV_TABLE_IB]);
+    pCommandList->SetComputeDescriptorTable(VERTEX_BUFFERS, m_srvTables[SRV_TABLE_VB]);
+    pCommandList->SetComputeDescriptorTable(ENV_TEXTURE, m_srvTables[SRV_TABLE_ENV]);
+    pCommandList->SetComputeDescriptorTable(SAMPLER, m_samplerTable);
+    pCommandList->SetComputeDescriptorTable(VERTEX_COLOR, m_uavTables[UAV_TABLE_RT]);
+    pCommandList->SetComputeDescriptorTable(TESS_DOMS, m_srvTables[SRV_TABLE_TESSDOMS]);
+
+    for (auto i = 0u; i < NUM_MESH; ++i)
+    {
+        CBTessellation tessConsts = { i, m_tessFactor, m_maxVertPerPatch };
+        pCommandList->SetCompute32BitConstants(TESS_CONSTS, SizeOfInUint32(tessConsts), &tessConsts);
+        // Fallback layer has no depth
+        pCommandList->DispatchRays(m_pipelines[RAY_TRACING], m_numMaxTessVerts[i], 1, 1,
+            m_hitGroupShaderTable.get(), m_missShaderTable.get(), m_rayGenShaderTables[frameIndex].get());
+    }
+}
+
+void TVRayTracer::rasterize(
+    const XUSG::CommandList* pCommandList,
+    uint8_t                  frameIndex)
+{
+    ResourceBarrier barriers[3];
+    const auto depthState = ResourceState::DEPTH_READ | ResourceState::NON_PIXEL_SHADER_RESOURCE;
+    auto numBarriers = m_depth->SetBarrier(barriers, depthState);
+    pCommandList->Barrier(numBarriers, barriers);
+
+    for (auto i = 0u; i < NUM_MESH; ++i)
+    {
+        numBarriers = m_tessColors[i]->SetBarrier(barriers, ResourceState::UNORDERED_ACCESS, numBarriers);
+    }
+    pCommandList->Barrier(numBarriers, barriers);
+
+    pCommandList->OMSetRenderTargets(0, nullptr, &m_depth->GetDSV());
+
+    pCommandList->SetGraphicsPipelineLayout(m_pipelineLayouts[GRAPHICS_LAYOUT]);
+    pCommandList->SetPipelineState(m_pipelines[GRAPHICS]);
+
+    pCommandList->SetGraphicsDescriptorTable(2, m_srvTables[SRV_TABLE_VCOLOR]);
+    pCommandList->SetGraphicsDescriptorTable(3, m_uavTables[UAV_TABLE_OUTPUT]);
+
+    Viewport viewport(0.0f, 0.0f, static_cast<float>(m_viewport.x), static_cast<float>(m_viewport.y));
+    RectRange scissorRect(0, 0, m_viewport.x, m_viewport.y);
+    pCommandList->RSSetViewports(1, &viewport);
+    pCommandList->RSSetScissorRects(1, &scissorRect);
+
+    pCommandList->IASetPrimitiveTopology(PrimitiveTopology::CONTROL_POINT3_PATCHLIST);
+
+    for (auto i = 0u; i < NUM_MESH; ++i)
+    {
+        CBTessellation tessConsts = { i, m_tessFactor, m_maxVertPerPatch };
+        pCommandList->SetGraphics32BitConstants(0, SizeOfInUint32(tessConsts), &tessConsts);
+        pCommandList->SetGraphicsRootConstantBufferView(1, m_cbGraphics[i].get(), m_cbGraphics[i]->GetCBVOffset(frameIndex));
         pCommandList->IASetVertexBuffers(0, 1, &m_vertexBuffers[i]->GetVBV());
         pCommandList->IASetIndexBuffer(m_indexBuffers[i]->GetIBV());
         pCommandList->DrawIndexed(m_numIndices[i], 1, 0, 0, 0);
@@ -936,11 +1075,16 @@ void TVRayTracer::rasterize(
 
 void TVRayTracer::toneMap(
     const XUSG::CommandList* pCommandList,
-    const Descriptor& rtv,
+    const Descriptor&        rtv,
     uint32_t                 numBarriers,
-    ResourceBarrier* pBarriers)
+    ResourceBarrier*         pBarriers)
 {
     pCommandList->Barrier(numBarriers, pBarriers);
+
+    ResourceBarrier barrier;
+    numBarriers = m_outputView->SetBarrier(&barrier, ResourceState::UNORDERED_ACCESS, 0);
+    pCommandList->Barrier(numBarriers, &barrier);
+
     pCommandList->OMSetRenderTargets(1, &rtv);
 
     pCommandList->SetGraphicsPipelineLayout(m_pipelineLayouts[TONEMAP_LAYOUT]);

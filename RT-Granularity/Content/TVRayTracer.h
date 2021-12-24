@@ -35,6 +35,7 @@ private:
     {
         Z_PRE_LAYOUT,
         ENV_PRE_LAYOUT,
+        TESSELLATION_LAYOUT,
 
         RT_GLOBAL_LAYOUT,
         RAY_GEN_LAYOUT,
@@ -50,6 +51,7 @@ private:
     {
         Z_PREPASS,
         ENV_PREPASS,
+        TESSELLATION,
         RAY_TRACING,
         GRAPHICS,
         TONEMAP,
@@ -57,7 +59,7 @@ private:
         NUM_PIPELINE
     };
 
-    enum GlobalPipelineLayoutSlot : uint8_t
+    enum PipelineLayoutSlot : uint8_t
     {
         VERTEX_COLOR,
         ACCELERATION_STRUCTURE,
@@ -66,7 +68,8 @@ private:
         VERTEX_BUFFERS,
         MATERIALS,
         CONSTANTS,
-        INSTANCE_IDX,
+        TESS_CONSTS,
+        TESS_DOMS,
         ENV_TEXTURE,
         OUTPUT_VIEW
     };
@@ -78,6 +81,7 @@ private:
         SRV_TABLE_ENV,
         SRV_TABLE_VCOLOR,
         SRV_TABLE_OUTPUT,
+        SRV_TABLE_TESSDOMS,
 
         NUM_SRV_TABLE
     };
@@ -86,6 +90,7 @@ private:
     {
         UAV_TABLE_RT,
         UAV_TABLE_OUTPUT,
+        UAV_TABLE_TESSDOMS,
 
         NUM_UAV_TABLE
     };
@@ -103,10 +108,13 @@ private:
         VS_DEPTH,
         VS_SQUAD,
         PS_ENV,
-        HS_SIMPLE,
-        DS_SIMPLE,
         CS_RT,
-        VS_GRAPHICS,
+        VS_IDENT,
+        HS_GRAPHICS,
+        DS_DEPTH,
+        DS_TESS,
+        DS_GRAPHICS,
+        PS_EMPTY,
         PS_GRAPHICS,
         PS_TONEMAP
     };
@@ -127,6 +135,7 @@ private:
 
     void zPrepass(const XUSG::CommandList* pCommandList, uint8_t frameIndex);
     void envPrepass(const XUSG::CommandList* pCommandList, uint8_t frameIndex);
+    void tessellate(const XUSG::CommandList* pCommandList, uint8_t frameIndex);
     void raytrace(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex);
     void rasterize(const XUSG::CommandList* pCommandList, uint8_t frameIndex);
     void toneMap(const XUSG::CommandList* pCommandList, const XUSG::Descriptor& rtv, uint32_t numBarriers, XUSG::ResourceBarrier* pBarriers);
@@ -135,6 +144,9 @@ private:
 
     uint32_t            m_numIndices[NUM_MESH];
     uint32_t            m_numVerts[NUM_MESH];
+    uint32_t            m_numMaxTessVerts[NUM_MESH];
+    uint32_t            m_tessFactor;
+    uint32_t            m_maxVertPerPatch;
 
     DirectX::XMUINT2    m_viewport;
     DirectX::XMFLOAT4   m_posScale;
@@ -143,26 +155,27 @@ private:
     XUSG::RayTracing::BottomLevelAS::uptr m_bottomLevelASs[NUM_MESH];
     XUSG::RayTracing::TopLevelAS::uptr    m_topLevelAS;
 
-    const XUSG::InputLayout* m_pInputLayout;
+    const XUSG::InputLayout*        m_pInputLayout;
     XUSG::PipelineLayout            m_pipelineLayouts[NUM_PIPELINE_LAYOUT];
     XUSG::Pipeline                  m_pipelines[NUM_PIPELINE];
 
     XUSG::DescriptorTable           m_srvTables[NUM_SRV_TABLE];
     XUSG::DescriptorTable           m_uavTables[NUM_UAV_TABLE];
     XUSG::DescriptorTable           m_samplerTable;
-    XUSG::Framebuffer               m_framebuffer;
 
     XUSG::VertexBuffer::uptr        m_vertexBuffers[NUM_MESH];
     XUSG::IndexBuffer::uptr         m_indexBuffers[NUM_MESH];
 
-    XUSG::DepthStencil::sptr        m_depth;
+    XUSG::DepthStencil::uptr        m_depth;
     XUSG::Texture2D::uptr           m_outputView;
-    XUSG::StructuredBuffer::uptr    m_vertexColors[NUM_MESH];
+    XUSG::StructuredBuffer::uptr    m_tessColors[NUM_MESH];
+    XUSG::StructuredBuffer::uptr    m_tessDoms[NUM_MESH];
 
     XUSG::ConstantBuffer::uptr      m_cbMaterials;
-    XUSG::ConstantBuffer::uptr      m_cbRaytracing;
+    XUSG::ConstantBuffer::uptr      m_cbGlobal;
     XUSG::ConstantBuffer::uptr      m_cbGraphics[NUM_MESH];
     XUSG::ConstantBuffer::uptr      m_cbEnv;
+    XUSG::ConstantBuffer::uptr      m_cbTessellation;
 
     XUSG::Resource::uptr            m_scratch;
     XUSG::Resource::uptr            m_instances[FrameCount];

@@ -128,7 +128,7 @@ private:
     XUSG::Texture2D::uptr       m_outputView;
 
     XUSG::ConstantBuffer::uptr  m_cbMaterials;
-    XUSG::ConstantBuffer::uptr  m_cbRaytracing;
+    XUSG::ConstantBuffer::uptr  m_cbGlobal;
 
     XUSG::Resource::uptr        m_scratch;
     XUSG::Resource::uptr        m_instances[FrameCount];

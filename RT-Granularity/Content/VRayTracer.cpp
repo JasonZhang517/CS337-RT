@@ -117,8 +117,8 @@ bool VRayTracer::Init(
         }
     }
 
-    m_cbRaytracing = ConstantBuffer::MakeUnique();
-    N_RETURN(m_cbRaytracing->Create(m_device.get(), sizeof(CBGlobal[FrameCount]), FrameCount,
+    m_cbGlobal = ConstantBuffer::MakeUnique();
+    N_RETURN(m_cbGlobal->Create(m_device.get(), sizeof(CBGlobal[FrameCount]), FrameCount,
         nullptr, MemoryType::UPLOAD, MemoryFlag::NONE, L"CBGlobal"), false);
 
     m_cbEnv = ConstantBuffer::MakeUnique();
@@ -155,7 +155,7 @@ bool VRayTracer::Init(
     }
 
     const auto dsFormat = Format::D24_UNORM_S8_UINT;
-    m_depth = DepthStencil::MakeShared();
+    m_depth = DepthStencil::MakeUnique();
     N_RETURN(m_depth->Create(m_device.get(), width, height, dsFormat, ResourceFlag::NONE,
         1, 1, 1, 1.0f, 0, false, MemoryFlag::NONE, L"Depth"), false);
 
@@ -270,18 +270,24 @@ void VRayTracer::UpdateFrame(
             XMMatrixTranslation(m_posScale.x, m_posScale.y, m_posScale.z)
         };
 
-        const auto pCbRT = reinterpret_cast<CBGlobal*>(m_cbRaytracing->Map(frameIndex));
+        for (auto i = 0u; i < NUM_MESH; ++i)
+        {
+            XMStoreFloat4x4(&m_worlds[i], XMMatrixTranspose(worlds[i]));
+        }
+
+        const auto pCbGlobal = reinterpret_cast<CBGlobal*>(m_cbGlobal->Map(frameIndex));
+        for (auto i = 0u; i < NUM_MESH; ++i)
+        {
+            XMStoreFloat3x4(&pCbGlobal->WorldITs[i], i ? rot : XMMatrixIdentity());
+            pCbGlobal->Worlds[i] = m_worlds[i];
+        }
 
         for (auto i = 0u; i < NUM_MESH; ++i)
         {
             const auto pCbGraphics = reinterpret_cast<CBGraphics*>(m_cbGraphics[i]->Map(frameIndex));
             pCbGraphics->ProjBias = projBias;
-            XMStoreFloat4x4(&m_worlds[i], XMMatrixTranspose(worlds[i]));
             XMStoreFloat4x4(&pCbGraphics->WorldViewProj, XMMatrixTranspose(worlds[i] * viewProj));
             XMStoreFloat3x4(&pCbGraphics->WorldIT, i ? rot : XMMatrixIdentity());
-
-            XMStoreFloat3x4(&pCbRT->WorldITs[i], i ? rot : XMMatrixIdentity());
-            pCbRT->Worlds[i] = m_worlds[i];
         }
     }
 }
@@ -367,43 +373,49 @@ bool VRayTracer::createIB(
 
 bool VRayTracer::createGroundMesh(
     RayTracing::CommandList* pCommandList,
-    vector<Resource::uptr>& uploaders)
+    vector<Resource::uptr>&  uploaders)
 {
+    const uint32_t N = 100;
     // Vertex buffer
     {
         // Cube vertices positions and corresponding triangle normals.
-        Vertex vertices[] =
-        {
-            { XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-            { XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-            { XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-            { XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-
-            { XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
-            { XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
-            { XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
-            { XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
-
-            { XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
-            { XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
-            { XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
-            { XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
-
-            { XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-            { XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-            { XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-            { XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-
-            { XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
-            { XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
-            { XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
-            { XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
-
-            { XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-            { XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-            { XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-            { XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-        };
+        static Vertex vertices[N * N * 6];
+        for (auto i = 0u; i < N; ++i)
+            for (auto j = 0u; j < N; ++j)
+                vertices[N * i + j] = { 
+                    XMFLOAT3(-1.0f + 2.0f * j / (N - 1), 1.0f, 1.0f - 2.0f * i / (N - 1)), 
+                    XMFLOAT3(0.0f, 1.0f, 0.0f) 
+                };
+        for (auto i = 0u; i < N; ++i)
+            for (auto j = 0u; j < N; ++j)
+                vertices[N * N + N * i + j] = { 
+                    XMFLOAT3(-1.0f + 2.0f * j / (N - 1), -1.0f, 1.0f - 2.0f * i / (N - 1)), 
+                    XMFLOAT3(0.0f, -1.0f, 0.0f) 
+                }; 
+        for (auto i = 0u; i < N; ++i)
+            for (auto j = 0u; j < N; ++j)
+                vertices[2 * N * N + N * i + j] = {
+                    XMFLOAT3(-1.0f, -1.0f + 2.0f * j / (N - 1), 1.0 - 2.0f * i / (N - 1)), 
+                    XMFLOAT3(-1.0f, 0.0f, 0.0f)
+                };
+        for (auto i = 0u; i < N; ++i)
+            for (auto j = 0u; j < N; ++j)
+                vertices[3 * N * N + N * i + j] = { 
+                    XMFLOAT3(1.0f, -1.0f + 2.0f * j / (N - 1), 1.0f - 2.0f * i / (N - 1)), 
+                    XMFLOAT3(1.0f, 0.0f, 0.0f) 
+                };
+        for (auto i = 0u; i < N; ++i)
+            for (auto j = 0u; j < N; ++j)
+                vertices[4 * N * N + N * i + j] = { 
+                    XMFLOAT3(-1.0f + 2.0f * j / (N - 1), 1.0f - 2.0f * i / (N - 1), -1.0f), 
+                    XMFLOAT3(0.0f, 0.0f, -1.0f) 
+                };
+        for (auto i = 0u; i < N; ++i)
+            for (auto j = 0u; j < N; ++j)
+                vertices[5 * N * N + N * i + j] = {
+                    XMFLOAT3(-1.0f + 2.0f * j / (N - 1), 1.0f - 2.0f * i / (N - 1), 1.0f), 
+                    XMFLOAT3(0.0f, 0.0f,1.0f) 
+                };
 
         auto& vertexBuffer = m_vertexBuffers[GROUND];
         vertexBuffer = VertexBuffer::MakeUnique();
@@ -421,28 +433,29 @@ bool VRayTracer::createGroundMesh(
     // Index Buffer
     {
         // Cube indices.
-        uint32_t indices[] =
+        static uint32_t indices[6][N - 1][N - 1][2][3];
+        for (auto s = 0u; s < 6u; s += 2)
         {
-            3,1,0,
-            2,1,3,
-
-            6,4,5,
-            7,4,6,
-
-            11,9,8,
-            10,9,11,
-
-            14,12,13,
-            15,12,14,
-
-            19,17,16,
-            18,17,19,
-
-            22,20,21,
-            23,20,22
-        };
-
-        auto numIndices = static_cast<uint32_t>(size(indices));
+            for (auto i = 0u; i < N - 1; ++i)
+            {
+                for (auto j = 0u; j < N - 1; ++j)
+                {
+                    indices[s][i][j][0][0] = i * N + j + s * N * N;
+                    indices[s][i][j][0][1] = i * N + j + 1 + s * N * N;
+                    indices[s][i][j][0][2] = (i + 1) * N + j + 1 + s * N * N;
+                    indices[s][i][j][1][0] = i * N + j + s * N * N;
+                    indices[s][i][j][1][1] = (i + 1) * N + j + 1 + s * N * N;
+                    indices[s][i][j][1][2] = (i + 1) * N + j + s * N * N;
+                    indices[s + 1][i][j][0][0] = i * N + j + (s + 1) * N * N;
+                    indices[s + 1][i][j][0][1] = (i + 1) * N + j + 1 + (s + 1) * N * N;
+                    indices[s + 1][i][j][0][2] = i * N + j + 1 + (s + 1) * N * N;
+                    indices[s + 1][i][j][1][0] = i * N + j + (s + 1) * N * N;
+                    indices[s + 1][i][j][1][1] = (i + 1) * N + j + (s + 1) * N * N;
+                    indices[s + 1][i][j][1][2] = (i + 1) * N + j + 1 + (s + 1) * N * N;
+                }
+            }
+        }
+        auto numIndices = 36 * (N - 1) * (N - 1);
         m_numIndices[GROUND] = numIndices;
 
         auto& indexBuffer = m_indexBuffers[GROUND];
@@ -505,8 +518,7 @@ bool VRayTracer::createPipelineLayouts()
         pipelineLayout->SetRange(VERTEX_BUFFERS, DescriptorType::SRV, NUM_MESH, 0, 2);
         pipelineLayout->SetRootCBV(MATERIALS, 0);
         pipelineLayout->SetRootCBV(CONSTANTS, 1);
-        // pipelineLayout->SetConstants(VERTEX_NUMBER, SizeOfInUint32(m_numVerts), 2);
-        pipelineLayout->SetConstants(INSTANCE_IDX, SizeOfInUint32(uint32_t), 2);
+        pipelineLayout->SetConstants(INSTANCE_IDX, SizeOfInUint32(uint32_t), 3);
         pipelineLayout->SetRange(ENV_TEXTURE, DescriptorType::SRV, 1, 1);
         X_RETURN(m_pipelineLayouts[RT_GLOBAL_LAYOUT], pipelineLayout->GetPipelineLayout(
             m_device.get(), m_pipelineLayoutCache.get(), PipelineLayoutFlag::NONE,
@@ -517,7 +529,7 @@ bool VRayTracer::createPipelineLayouts()
     // This is a pipeline layout that enables a shader to have unique arguments that come from shader tables.
     {
         const auto pipelineLayout = RayTracing::PipelineLayout::MakeUnique();
-        pipelineLayout->SetConstants(0, SizeOfInUint32(RayGenConstants), 3);
+        pipelineLayout->SetConstants(0, SizeOfInUint32(RayGenConstants), 2);
         X_RETURN(m_pipelineLayouts[RAY_GEN_LAYOUT], pipelineLayout->GetPipelineLayout(
             m_device.get(), m_pipelineLayoutCache.get(), PipelineLayoutFlag::LOCAL_PIPELINE_LAYOUT,
             L"RayTracerRayGenPipelineLayout"), false);
@@ -527,7 +539,7 @@ bool VRayTracer::createPipelineLayouts()
     // This is a pipeline layout that enables a shader to have unique arguments that come from shader tables.
     {
         const auto pipelineLayout = RayTracing::PipelineLayout::MakeUnique();
-        pipelineLayout->SetConstants(0, SizeOfInUint32(RayGenConstants), 3);
+        pipelineLayout->SetConstants(0, SizeOfInUint32(RayGenConstants), 2);
         X_RETURN(m_pipelineLayouts[HIT_RADIANCE_LAYOUT], pipelineLayout->GetPipelineLayout(
             m_device.get(), m_pipelineLayoutCache.get(), PipelineLayoutFlag::LOCAL_PIPELINE_LAYOUT,
             L"RayTracerHitRadiancePipelineLayout"), false);
@@ -537,10 +549,9 @@ bool VRayTracer::createPipelineLayouts()
     {
         const auto pipelineLayout = Util::PipelineLayout::MakeUnique();
         pipelineLayout->SetRootCBV(0, 0, 0, Shader::Stage::VS);
-        pipelineLayout->SetConstants(1, SizeOfInUint32(uint32_t), 1, 0, Shader::Stage::VS);
+        pipelineLayout->SetConstants(1, 1, 1, 0, Shader::Stage::VS);
         pipelineLayout->SetRange(2, DescriptorType::SRV, 2, 0, 0);
         pipelineLayout->SetRange(3, DescriptorType::UAV, 1, 0, 0);
-        pipelineLayout->SetRootCBV(4, 0, 0, Shader::Stage::PS);
         auto pipelineLayoutFlags = PipelineLayoutFlag::ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
         X_RETURN(m_pipelineLayouts[GRAPHICS_LAYOUT], pipelineLayout->GetPipelineLayout(m_pipelineLayoutCache.get(), pipelineLayoutFlags, L"GraphicsPipelineLayout"), false);
@@ -611,10 +622,11 @@ bool VRayTracer::createPipelines(Format rtFormat, Format dsFormat)
         state->SetPipelineLayout(m_pipelineLayouts[GRAPHICS_LAYOUT]);
         state->SetShader(Shader::Stage::VS, m_shaderPool->GetShader(Shader::Stage::VS, ShaderIndex::VS_GRAPHICS));
         state->SetShader(Shader::Stage::PS, m_shaderPool->GetShader(Shader::Stage::PS, ShaderIndex::PS_GRAPHICS));
-        state->DSSetState(Graphics::DepthStencilPreset::DEPTH_READ_EQUAL, m_graphicsPipelineCache.get());
+        state->DSSetState(Graphics::DEPTH_READ_EQUAL, m_graphicsPipelineCache.get());
         state->IASetInputLayout(m_pInputLayout);
         state->IASetPrimitiveTopologyType(PrimitiveTopologyType::TRIANGLE);
         state->OMSetNumRenderTargets(0);
+        state->OMSetDSVFormat(m_depth->GetFormat());
         X_RETURN(m_pipelines[GRAPHICS], state->GetPipeline(m_graphicsPipelineCache.get(), L"GraphicsPass"), false);
     }
 
@@ -699,12 +711,6 @@ bool VRayTracer::createDescriptorTables()
         const auto samplerAnisoWrap = SamplerPreset::ANISOTROPIC_WRAP;
         descriptorTable->SetSamplers(0, 1, &samplerAnisoWrap, m_descriptorTableCache.get());
         X_RETURN(m_samplerTable, descriptorTable->GetSamplerTable(m_descriptorTableCache.get()), false);
-    }
-
-    // Depth buffer
-    {
-        const auto descriptorTable = Util::DescriptorTable::MakeUnique();
-        m_framebuffer = descriptorTable->GetFramebuffer(m_descriptorTableCache.get(), &m_depth->GetDSV());
     }
 
     return true;
@@ -850,6 +856,7 @@ void VRayTracer::envPrepass(
     const XUSG::CommandList* pCommandList,
     uint8_t                  frameIndex)
 {
+    pCommandList->OMSetRenderTargets(0, nullptr);
     pCommandList->SetGraphicsPipelineLayout(m_pipelineLayouts[ENV_PRE_LAYOUT]);
     pCommandList->SetPipelineState(m_pipelines[ENV_PREPASS]);
 
@@ -879,7 +886,7 @@ void VRayTracer::raytrace(
     pCommandList->SetComputeDescriptorTable(INDEX_BUFFERS, m_srvTables[SRV_TABLE_IB]);
     pCommandList->SetComputeDescriptorTable(VERTEX_BUFFERS, m_srvTables[SRV_TABLE_VB]);
     pCommandList->SetComputeRootConstantBufferView(MATERIALS, m_cbMaterials.get());
-    pCommandList->SetComputeRootConstantBufferView(CONSTANTS, m_cbRaytracing.get(), m_cbRaytracing->GetCBVOffset(frameIndex));
+    pCommandList->SetComputeRootConstantBufferView(CONSTANTS, m_cbGlobal.get(), m_cbGlobal->GetCBVOffset(frameIndex));
     pCommandList->SetComputeDescriptorTable(ENV_TEXTURE, m_srvTables[SRV_TABLE_ENV]);
 
     for (auto i = 0u; i < NUM_MESH; ++i)
@@ -908,14 +915,13 @@ void VRayTracer::rasterize(
     const auto numBarriers = m_depth->SetBarrier(&barrier, depthState);
     pCommandList->Barrier(numBarriers, &barrier);
 
-    pCommandList->OMSetFramebuffer(m_framebuffer);
+    pCommandList->OMSetRenderTargets(0, nullptr, &m_depth->GetDSV());
     
     pCommandList->SetGraphicsPipelineLayout(m_pipelineLayouts[GRAPHICS_LAYOUT]);
     pCommandList->SetPipelineState(m_pipelines[GRAPHICS]);
     
     pCommandList->SetGraphicsDescriptorTable(2, m_srvTables[SRV_TABLE_VCOLOR]);
     pCommandList->SetGraphicsDescriptorTable(3, m_uavTables[UAV_TABLE_OUTPUT]);
-    pCommandList->SetGraphicsRootConstantBufferView(4, m_cbEnv.get(), m_cbEnv->GetCBVOffset(frameIndex));
     
     Viewport viewport(0.0f, 0.0f, static_cast<float>(m_viewport.x), static_cast<float>(m_viewport.y));
     RectRange scissorRect(0, 0, m_viewport.x, m_viewport.y);

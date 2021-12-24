@@ -148,17 +148,16 @@ private:
     XUSG::DescriptorTable           m_srvTables[NUM_SRV_TABLE];
     XUSG::DescriptorTable           m_uavTables[NUM_UAV_TABLE];
     XUSG::DescriptorTable           m_samplerTable;
-    XUSG::Framebuffer               m_framebuffer;
 
     XUSG::VertexBuffer::uptr        m_vertexBuffers[NUM_MESH];
     XUSG::IndexBuffer::uptr         m_indexBuffers[NUM_MESH];
 
-    XUSG::DepthStencil::sptr        m_depth;
+    XUSG::DepthStencil::uptr        m_depth;
     XUSG::Texture2D::uptr           m_outputView;
     XUSG::StructuredBuffer::uptr    m_vertexColors[NUM_MESH];
 
     XUSG::ConstantBuffer::uptr      m_cbMaterials;
-    XUSG::ConstantBuffer::uptr      m_cbRaytracing;
+    XUSG::ConstantBuffer::uptr      m_cbGlobal;
     XUSG::ConstantBuffer::uptr      m_cbGraphics[NUM_MESH];
     XUSG::ConstantBuffer::uptr      m_cbEnv;
 

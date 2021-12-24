@@ -1,35 +1,40 @@
-struct DSOut
-{
-    float4 Pos  : SV_Position;
-    float3 Norm : Normal;
-};
-
 struct HSControlOut
 {
-    float3 Pos  : WorldPos;
-    float3 Norm : Normal;
+    float3 Pos  : Position;
 };
 
 struct HSConstOut
 {
     float EdgeTessFactor[3] : SV_TessFactor;
     float InsideTessFactor  : SV_InsideTessFactor;
+    uint  PatchID;
 };
 
-#define NUM_CONTROL_POINTS 3
+inline uint calcMaxVertPerPatch(uint tessFactor)
+{
+    const uint k = tessFactor / 2 + 1;
+    return 3 * k * (tessFactor & 1 ? k + 1 : k);
+};
+
+inline uint domainHash(float2 domain, uint tessFactor)
+{
+    const uint N = calcMaxVertPerPatch(tessFactor);
+    return (tessFactor * (domain.x * tessFactor + domain.y)) % N;
+}
+
+cbuffer cbTessellation : register(b0)
+{
+    uint g_instanceIdx;
+    uint g_tessFactor;
+};
+
+RWStructuredBuffer<float2> g_tessDomains[] : register(u0);
 
 [domain("tri")]
-DSOut main(
+void main(
     HSConstOut input,
     float3 domain : SV_DomainLocation,
-    const OutputPatch<HSControlOut, NUM_CONTROL_POINTS> patch)
+    const OutputPatch<HSControlOut, 3> patch)
 {
-    DSOut Output;
-
-    Output.Pos = 
-        float4(patch[0].Pos * domain.x + patch[1].Pos * domain.y + patch[2].Pos * domain.z, 1);
-    Output.Norm = 
-        patch[0].Norm * domain.x + patch[1].Norm * domain.y + patch[2].Norm * domain.z;
-
-    return Output;
+    g_tessDomains[g_instanceIdx][domainHash(domain.xy, g_tessFactor)] = domain.xy;
 }
