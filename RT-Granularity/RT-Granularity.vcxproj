@@ -115,7 +115,6 @@ XCOPY /E/I/Y "$(ProjectDir)\Scripts" "$(OutDir)\Scripts"</Command>
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdafx.h</ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="Common\XUSGObjLoader.cpp" />
-    <ClCompile Include="Content\PostProcessor.cpp" />
     <ClCompile Include="Content\PRayTracer.cpp">
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdafx.h</ForcedIncludeFiles>
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdafx.h</ForcedIncludeFiles>
@@ -145,7 +144,6 @@ XCOPY /E/I/Y "$(ProjectDir)\Scripts" "$(OutDir)\Scripts"</Command>
     <ClInclude Include="Common\StepTimer.h" />
     <ClInclude Include="Common\Win32Application.h" />
     <ClInclude Include="Common\XUSGObjLoader.h" />
-    <ClInclude Include="Content\PostProcessor.h" />
     <ClInclude Include="Content\PRayTracer.h" />
     <ClInclude Include="Content\RayTracerSelection.h" />
     <ClInclude Include="Content\TVRayTracer.h" />

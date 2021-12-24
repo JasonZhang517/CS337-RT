@@ -542,7 +542,6 @@ bool TVRayTracer::createPipelineLayouts()
     {
         // Get pipeline layout
         const auto pipelineLayout = Util::PipelineLayout::MakeUnique();
-        // pipelineLayout->SetRootCBV(0, 0, 0, Shader::Stage::VS);
         pipelineLayout->SetConstants(0, SizeOfInUint32(CBTessellation), 0);
         pipelineLayout->SetRootCBV(1, 1, 0, Shader::Stage::DS);
         X_RETURN(m_pipelineLayouts[Z_PRE_LAYOUT], pipelineLayout->GetPipelineLayout(m_pipelineLayoutCache.get(),
@@ -945,7 +944,6 @@ void TVRayTracer::zPrepass(
     for (auto i = 0u; i < NUM_MESH; ++i)
     {
         // Set descriptor tables
-        // pCommandList->SetGraphicsRootConstantBufferView(0, m_cbGraphics[i].get(), m_cbGraphics[i]->GetCBVOffset(frameIndex));
         CBTessellation tessConsts = { i, m_tessFactor, m_maxVertPerPatch };
         pCommandList->SetGraphics32BitConstants(0, SizeOfInUint32(tessConsts), &tessConsts);
         pCommandList->SetGraphicsRootConstantBufferView(1, m_cbGraphics[i].get(), m_cbGraphics[i]->GetCBVOffset(frameIndex));

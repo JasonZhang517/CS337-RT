@@ -107,7 +107,6 @@ private:
 
     enum ShaderIndex : uint8_t
     {
-        VS_DEPTH,
         VS_SQUAD,
         PS_ENV,
         CS_RT,
@@ -116,7 +115,6 @@ private:
         DS_DEPTH,
         DS_TESS,
         DS_GRAPHICS,
-        PS_EMPTY,
         PS_GRAPHICS,
         PS_TONEMAP
     };

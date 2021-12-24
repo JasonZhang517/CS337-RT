@@ -135,6 +135,7 @@ private:
 
     uint32_t            m_numIndices[NUM_MESH];
     uint32_t            m_numVerts[NUM_MESH];
+    uint32_t            m_tessFactor;
 
     DirectX::XMUINT2    m_viewport;
     DirectX::XMFLOAT4   m_posScale;

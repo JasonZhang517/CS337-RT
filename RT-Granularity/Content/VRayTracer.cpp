@@ -60,7 +60,8 @@ const wchar_t* VRayTracer::MissShaderNames[] = { L"missRadiance", L"missShadow" 
 
 VRayTracer::VRayTracer(const RayTracing::Device::sptr& device) :
     m_device(device),
-    m_instances()
+    m_instances(),
+    m_tessFactor(2)
 {
     m_shaderPool = ShaderPool::MakeUnique();
     m_rayTracingPipelineCache = RayTracing::PipelineCache::MakeUnique(device.get());
@@ -291,6 +292,8 @@ void VRayTracer::UpdateFrame(
             XMStoreFloat3x4(&pCbGraphics->WorldIT, i ? rot : XMMatrixIdentity());
         }
     }
+
+    m_tessFactor = tessFactor;
 }
 
 void VRayTracer::Render(
