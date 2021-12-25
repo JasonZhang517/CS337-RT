@@ -19,5 +19,5 @@ cbuffer cbTessellation : register(b0)
 inline uint domainHash(float2 domain, uint tessFactor, uint maxVertPerPatch)
 {
     float hash = (domain.x * tessFactor * tessFactor + domain.y) * tessFactor;
-    return uint(hash * 10000) % maxVertPerPatch;
+    return uint(hash * 16381) % maxVertPerPatch;
 }

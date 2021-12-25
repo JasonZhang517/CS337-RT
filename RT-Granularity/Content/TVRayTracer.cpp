@@ -426,7 +426,7 @@ bool TVRayTracer::createGroundMesh(
     RayTracing::CommandList* pCommandList,
     vector<Resource::uptr>& uploaders)
 {
-    const uint32_t N = 100;
+    const uint32_t N = 64;
     // Vertex buffer
     {
         // Cube vertices positions and corresponding triangle normals.
